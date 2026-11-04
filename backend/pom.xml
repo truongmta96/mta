@@ -1,1 +1,131 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0"><modelVersion>4.0.0</modelVersion><parent><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-parent</artifactId><version>3.5.7</version><relativePath/></parent><groupId>vn.mta</groupId><artifactId>shop</artifactId><version>0.1.0</version><properties><java.version>17</java.version></properties><dependencies><dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId></dependency><dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-jdbc</artifactId></dependency><dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-validation</artifactId></dependency><dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-data-redis</artifactId></dependency><dependency><groupId>org.springframework.kafka</groupId><artifactId>spring-kafka</artifactId></dependency><dependency><groupId>org.flywaydb</groupId><artifactId>flyway-mysql</artifactId></dependency><dependency><groupId>com.mysql</groupId><artifactId>mysql-connector-j</artifactId><scope>runtime</scope></dependency><dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency></dependencies><build><plugins><plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId></plugin></plugins></build></project>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+    <!-- Phiên bản định dạng POM của Maven, không phải phiên bản ứng dụng. -->
+    <modelVersion>4.0.0</modelVersion>
+
+    <!--
+        Kế thừa cấu hình build và bảng phiên bản dependency từ Spring Boot 3.5.7.
+        Nhờ đó các dependency do Spring Boot quản lý bên dưới không cần ghi version.
+        relativePath rỗng yêu cầu Maven tìm parent trong repository, không tìm ở ../pom.xml.
+    -->
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.5.7</version>
+        <relativePath/>
+    </parent>
+
+    <!--
+        Định danh ứng dụng trong Maven: nhóm vn.mta, tên artifact shop, phiên bản 0.1.0.
+        Với cấu hình hiện tại, file sau khi build là target/shop-0.1.0.jar.
+        Không khai báo packaging thì Maven mặc định dùng jar.
+    -->
+    <groupId>vn.mta</groupId>
+    <artifactId>shop</artifactId>
+    <version>0.1.0</version>
+
+    <properties>
+        <!--
+            Spring Boot parent dùng giá trị này để cấu hình biên dịch tương thích Java 17.
+            Cần JDK hỗ trợ Java 17 để build; runtime chạy ứng dụng cần Java 17 trở lên.
+            Thiết lập này không tự tải hay cài JDK lên máy.
+        -->
+        <java.version>17</java.version>
+    </properties>
+
+    <!--
+        Các thư viện ứng dụng sử dụng. Nếu không ghi scope, mặc định là compile:
+        có mặt khi biên dịch và được đóng gói vào executable JAR khi phù hợp.
+        Thêm dependency chỉ cung cấp thư viện; địa chỉ kết nối và thông tin dịch vụ
+        vẫn cần cấu hình trong application.yml hoặc biến môi trường.
+    -->
+    <dependencies>
+        <!-- REST API, xử lý JSON bằng Jackson và web server nhúng Tomcat. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!--
+            Truy cập database bằng JDBC/JdbcTemplate và quản lý connection pool HikariCP.
+            Dự án hiện viết SQL trực tiếp, chưa sử dụng JPA/Hibernate.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
+        </dependency>
+
+        <!-- Kiểm tra dữ liệu đầu vào bằng @Valid, @NotBlank, @Min, @Max, @Size... -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!--
+            Cung cấp Spring Data Redis và Redis client để làm việc với Redis.
+            Bản khởi tạo đã có cấu hình kết nối; chưa triển khai cache nghiệp vụ.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+
+        <!--
+            Tích hợp Kafka, gồm KafkaTemplate để gửi và @KafkaListener để nhận sự kiện.
+            BackgroundJobs hiện dùng KafkaTemplate phát sự kiện từ bảng outbox_events.
+            Dependency này không khởi động Kafka broker; broker chạy bằng Docker Compose.
+        -->
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
+        </dependency>
+
+        <!--
+            Hỗ trợ MySQL cho Flyway và kéo theo Flyway core.
+            Spring Boot tự chạy migration trong src/main/resources/db/migration khi khởi động.
+            V1 tạo bảng, V2 nạp catalog mẫu; lịch sử được lưu trong flyway_schema_history.
+            Khi migration đã áp dụng, thêm file V3, V4... thay vì sửa migration cũ.
+        -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-mysql</artifactId>
+        </dependency>
+
+        <!--
+            JDBC driver để kết nối MySQL.
+            scope runtime: không nằm trên classpath biên dịch chính, nhưng có lúc chạy
+            và được đưa vào executable JAR; code hiện dùng các API JDBC/Spring chung.
+        -->
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!--
+            Bộ công cụ kiểm thử: JUnit Jupiter, Mockito, Spring Test, AssertJ...
+            scope test: chỉ dùng khi biên dịch/chạy test, không đưa vào JAR ứng dụng.
+            Khai báo thư viện không đồng nghĩa đã có test; các smoke test hiện nằm ở scripts/.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!--
+                Spring Boot Maven Plugin: parent cấu hình goal repackage để đóng gói
+                executable JAR chứa ứng dụng và dependency khi chạy mvn package.
+                Chạy ứng dụng bằng java -jar target/shop-0.1.0.jar,
+                hoặc chạy trực tiếp lúc phát triển bằng mvn spring-boot:run.
+                Phiên bản plugin được kế thừa từ Spring Boot parent ở trên.
+            -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>
