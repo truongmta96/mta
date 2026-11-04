@@ -1,0 +1,19 @@
+server:
+  port: 8080
+  error:
+    include-message: always
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/mta?connectionTimeZone=UTC}
+    username: ${DB_USER:mta}
+    password: ${DB_PASSWORD:mta_dev_only}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+  jackson:
+    time-zone: UTC
