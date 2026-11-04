@@ -1,1 +1,2 @@
+# Không gửi kết quả Maven trên host vào build context; Docker tự build lại JAR.
 target

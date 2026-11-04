@@ -1,19 +1,32 @@
+# Cấu hình web server nhúng của Spring Boot.
 server:
+  # Cổng API trong tiến trình/container; Compose ánh xạ cổng này ra máy host.
   port: 8080
   error:
+    # Trả thông báo lỗi cho client trong bản demo; cần xem lại mức chi tiết khi triển khai thật.
     include-message: always
 spring:
+  # Cú pháp ${BIEN:mac_dinh}: ưu tiên biến môi trường, nếu thiếu thì dùng giá trị sau dấu hai chấm.
   datasource:
+    # Chạy ngoài Docker dùng localhost; Compose truyền DB_URL dùng tên dịch vụ mysql.
+    # connectionTimeZone=UTC cấu hình múi giờ kết nối của MySQL JDBC driver.
     url: ${DB_URL:jdbc:mysql://localhost:3306/mta?connectionTimeZone=UTC}
+    # Tài khoản database của ứng dụng, không phải tài khoản đăng nhập cửa hàng.
     username: ${DB_USER:mta}
+    # Mật khẩu mặc định chỉ dùng phát triển; thay bằng biến môi trường khi triển khai thật.
     password: ${DB_PASSWORD:mta_dev_only}
   data:
     redis:
+      # Cổng Redis mặc định của Spring Boot là 6379; bản đầu chưa bật cache nghiệp vụ.
       host: ${REDIS_HOST:localhost}
   kafka:
+    # Điểm kết nối ban đầu tới broker; client sau đó dùng địa chỉ broker quảng bá.
     bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
     producer:
+      # Key và payload outbox đều gửi dạng String; payload chứa nội dung JSON đã tạo sẵn.
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
   jackson:
+    # Múi giờ mặc định khi Jackson xử lý kiểu ngày giờ có áp dụng timezone.
+    # LocalDateTime không mang múi giờ; thiết lập này không tự đổi timezone của MySQL hay JVM.
     time-zone: UTC

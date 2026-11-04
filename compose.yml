@@ -1,57 +1,84 @@
+# Tên project: Compose dùng làm tiền tố cho container, network và volume.
 name: mta
+# Các dịch vụ dùng chung network mặc định; gọi nhau bằng tên mysql, redis, kafka, api.
 services:
+  # Database chính. Các biến MYSQL_* chỉ khởi tạo user/database khi data directory còn trống.
   mysql:
     image: mysql:8.4
+    # Thông tin đăng nhập mẫu cho máy phát triển, cần thay khi triển khai thực tế.
     environment:
       MYSQL_DATABASE: mta
       MYSQL_USER: mta
       MYSQL_PASSWORD: mta_dev_only
       MYSQL_ROOT_PASSWORD: root_dev_only
+    # host_ip:host_port:container_port; 127.0.0.1 chỉ mở cổng trên loopback của máy host.
     ports: ["127.0.0.1:3306:3306"]
+    # Lưu dữ liệu bền vững bên ngoài filesystem container; xóa container không xóa volume này.
     volumes: ["mysql_data:/var/lib/mysql"]
+    # SELECT 1 xác minh ứng dụng có thể đăng nhập vào database.
+    # $$ giữ ký tự $ để shell trong container đọc biến, thay vì Compose nội suy từ máy host.
     healthcheck:
       test: ["CMD-SHELL", "MYSQL_PWD=$$MYSQL_PASSWORD mysql -h 127.0.0.1 -u$$MYSQL_USER -D mta -e 'SELECT 1'"]
+      # Kiểm tra mỗi 5 giây, giới hạn mỗi lần 5 giây; 30 lần lỗi liên tiếp thì unhealthy.
       interval: 5s
       timeout: 5s
       retries: 30
+  # Redis dành cho cache/phiên sau này; hiện cấu hình kết nối và kiểm tra PING.
   redis:
     image: redis:7.4-alpine
     ports: ["127.0.0.1:6379:6379"]
+    # AOF ghi lại các lệnh thay đổi dữ liệu để hỗ trợ khôi phục khi Redis khởi động lại.
     command: ["redis-server", "--appendonly", "yes"]
     volumes: ["redis_data:/data"]
+  # Một node Kafka dùng KRaft, không cần ZooKeeper; cấu hình này dành cho phát triển.
   kafka:
     image: apache/kafka:3.9.1
     ports: ["127.0.0.1:9092:9092"]
     environment:
+      # ID duy nhất của node trong cluster; node này kiêm broker và controller.
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
+      # INTERNAL: client trong Docker; EXTERNAL: client trên host; CONTROLLER: quản lý metadata.
       KAFKA_LISTENERS: INTERNAL://:29092,EXTERNAL://:9092,CONTROLLER://:9093
+      # Địa chỉ Kafka trả về cho client: trong Docker dùng kafka:29092, trên host dùng localhost:9092.
       KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
+      # PLAINTEXT không mã hóa/xác thực; môi trường thật cần thiết kế TLS/SASL phù hợp.
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      # Kênh giao tiếp giữa broker và listener dành cho controller.
       KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      # Danh sách controller theo dạng node_id@host:port; ở đây chỉ có một controller.
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      # Các topic nội bộ chỉ có một replica để chạy được trên cluster một node.
+      # Không có khả năng chịu mất node như cluster production nhiều broker.
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
     volumes: ["kafka_data:/tmp/kraft-combined-logs"]
+  # Build backend từ Dockerfile trong backend; Java 17 chạy executable JAR.
   api:
     build: ./backend
     ports: ["127.0.0.1:8080:8080"]
     environment:
+      # JDBC/Redis/Kafka kết nối bằng DNS dịch vụ Docker, không dùng localhost trong container API.
       DB_URL: jdbc:mysql://mysql:3306/mta?connectionTimeZone=UTC
       DB_USER: mta
       DB_PASSWORD: mta_dev_only
       REDIS_HOST: redis
       KAFKA_BOOTSTRAP: kafka:29092
+    # Chờ MySQL healthy; Redis/Kafka chỉ cần container started, chưa chứng minh đã sẵn sàng.
     depends_on:
       mysql: {condition: service_healthy}
       redis: {condition: service_started}
       kafka: {condition: service_started}
+  # Build React rồi phục vụ bằng Nginx; /api được proxy sang dịch vụ api:8080.
   web:
     build: ./frontend
+    # Trình duyệt truy cập cổng 5173 trên host, Nginx bên trong lắng nghe cổng 80.
     ports: ["127.0.0.1:5173:80"]
+    # Chỉ bảo đảm thứ tự khởi động; dùng scripts/check-ready.py để kiểm tra luồng thực tế.
     depends_on: [api]
+# Named volumes giữ dữ liệu qua lần tạo lại container. docker compose down -v sẽ xóa chúng.
 volumes:
   mysql_data:
   redis_data:

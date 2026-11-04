@@ -1,2 +1,4 @@
+# Không gửi dependency trên host vào Docker; image cài đúng lockfile bằng npm ci.
 node_modules
+# Không gửi bundle cũ vào Docker; image tạo dist mới bằng npm run build.
 dist

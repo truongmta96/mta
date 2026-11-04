@@ -47,3 +47,7 @@ MySQL không hỗ trợ FK trên bảng InnoDB partition. Vì vậy các bảng 
 ## Kiểm thử
 
 `npm ci && npm run build` trong frontend; `mvn package` với JDK 17 trong backend. `scripts/smoke.py` chạy thật với MySQL/backend và tạo 9 đơn thử nghiệm. Kết quả kiểm chứng của phiên dựng source được ghi tại `docs/validation.md`.
+
+## Đọc cấu hình
+
+Các file cấu hình có comment tiếng Việt. Xem [giải thích cấu hình](docs/configuration.md) để hiểu cách các file phối hợp và ý nghĩa các trường JSON không thể chèn comment trực tiếp.

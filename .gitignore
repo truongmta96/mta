@@ -1,6 +1,12 @@
+# Dependency do npm cài; có thể tạo lại bằng npm ci từ package-lock.json.
 node_modules/
+# Kết quả build frontend, không phải source.
 dist/
+# Kết quả build Maven (JAR, class...), có thể tạo lại bằng mvn package.
 target/
+# Cấu hình môi trường cục bộ có thể chứa thông tin nhạy cảm.
 .env
+# Dữ liệu cục bộ trong thư mục này không đưa lên Git.
 .data/
+# Log sinh khi ứng dụng/công cụ chạy.
 *.log
