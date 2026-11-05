@@ -68,6 +68,9 @@ services:
       APP_DEMO_USER_PASSWORD: ${APP_DEMO_USER_PASSWORD:-User@12345}
       # Bật true khi phục vụ qua HTTPS để cookie phiên chỉ gửi qua kết nối bảo mật.
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+      # Chỉ thanh toán mô phỏng, không kết nối ngân hàng/ví thật.
+      PAYMENT_SANDBOX_ENABLED: ${PAYMENT_SANDBOX_ENABLED:-true}
+      PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:-}
       DB_USER: mta
       DB_PASSWORD: mta_dev_only
       REDIS_HOST: redis

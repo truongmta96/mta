@@ -36,19 +36,19 @@ Nếu chạy backend ngoài Compose: bật `APP_DEMO_ACCOUNTS_ENABLED=true` và 
 
 React chỉ hiển thị menu phù hợp và chặn màn hình khi nhập trực tiếp hash URL. Spring Security kiểm tra độc lập trên mọi API; sửa JavaScript/localStorage hoặc tự gửi role/customerId không cấp thêm quyền.
 
-Khu quản trị hiện là các màn hình **xem dữ liệu**, mỗi màn hình tối đa 100 bản ghi. Các thao tác thêm/sửa/xóa/phân quyền qua giao diện chưa triển khai. Không gửi password_hash qua các API quản trị. Flash sale và thanh toán thật vẫn chưa triển khai.
+Khu quản trị đã có thêm/sửa/xóa mềm/khôi phục, phân quyền tài khoản, cập nhật đơn, sale và duyệt hoàn sandbox. Các danh sách có tìm tiền tố và phân trang server 50 bản ghi/trang. Không gửi password_hash qua API. Xem [workflow đầy đủ](commerce.md). Thanh toán dùng sandbox theo lựa chọn, không thu tiền thật.
 
 ## Cơ chế session và CSRF
 
 - `POST /api/auth/login`: email, password và portal tùy chọn ADMIN/CUSTOMER. Portal chỉ giới hạn khu vực đăng nhập, không thay đổi quyền. Sai portal trả 403 trước khi lưu phiên.
 - `GET /api/auth/me`: trả id/email/name/role; server tra cứu trạng thái và vai trò từ database.
 - `POST /api/auth/register`: email, password (ít nhất 10 ký tự, tối đa 72 bytes UTF-8), name. Vai trò CUSTOMER do server đặt.
-- `GET /api/auth/csrf`: trả token và headerName. Gửi header này cho POST, kể cả login, register và logout.
+- `GET /api/auth/csrf`: trả token và headerName. Gửi header này cho POST/PUT/PATCH/DELETE, kể cả login, register và logout. Chỉ webhook HTTP bỏ CSRF và thay bằng HMAC + timestamp.
 - `POST /api/auth/logout`: cần CSRF, hủy session và cookie đăng nhập.
 - Cookie JSESSIONID là HttpOnly, SameSite=Lax; session đổi ID và đổi CSRF token khi đăng nhập, hết hạn sau 30 phút không hoạt động.
 - Cookie mặc định chưa bật Secure để chạy local HTTP. Production HTTPS cần `SESSION_COOKIE_SECURE=true` và `APP_DEMO_ACCOUNTS_ENABLED=false` trong môi trường/.env dùng cho Compose. Tắt seeder không xóa hoặc khóa tài khoản mẫu đã tạo; phải xử lý các tài khoản đó riêng trước triển khai.
 - Không lưu mật khẩu hay token đăng nhập trong localStorage. React khôi phục thông tin tài khoản qua /auth/me khi tải lại.
-- Mỗi request có đăng nhập đều kiểm tra lại status/deleted_at/role. Tài khoản bị khóa/xóa hoặc thay role sẽ mất phiên hiện tại ở request kế tiếp.
+- Mỗi request có đăng nhập đều kiểm tra lại status/deleted_at/role. Tài khoản bị khóa/xóa, đổi email/mật khẩu/role sẽ mất phiên hiện tại ở request kế tiếp nhờ session_version. User có thể xóa tài khoản bằng mật khẩu xác nhận; admin quản lý các tài khoản khác và không thể tự xóa/khóa/hạ quyền.
 - Session hiện nằm trong bộ nhớ một API instance. Restart API sẽ mất phiên; chạy nhiều instance cần bổ sung Spring Session Redis hoặc cơ chế tương đương. Redis hiện chưa lưu session.
 - Chưa có khôi phục mật khẩu, MFA hay rate limit đăng nhập; cần bổ sung trước khi công khai hệ thống.
 

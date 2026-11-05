@@ -6,18 +6,12 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 @Component
 public class BackgroundJobs {
- private final JdbcTemplate db; private final KafkaTemplate<String,String> kafka;
- public BackgroundJobs(JdbcTemplate db,KafkaTemplate<String,String> kafka){this.db=db;this.kafka=kafka;}
+ private final JdbcTemplate db; private final KafkaTemplate<String,String> kafka; private final OrderService orderService;
+ public BackgroundJobs(JdbcTemplate db,KafkaTemplate<String,String> kafka,OrderService orderService){this.db=db;this.kafka=kafka;this.orderService=orderService;}
  @Scheduled(fixedDelay=10000) @Transactional
  public void expire(){
   var orders=db.queryForList("SELECT id FROM orders WHERE status='PENDING_PAYMENT' AND expires_at<=UTC_TIMESTAMP() ORDER BY expires_at,id LIMIT 100 FOR UPDATE SKIP LOCKED");
-  for(var o:orders){Object id=o.get("id");
-   var rows=db.queryForList("SELECT sku_id,quantity FROM inventory_reservations WHERE order_id=? AND status='HELD'",id);
-   for(var r:rows)db.update("UPDATE inventory SET reserved=reserved-? WHERE sku_id=?",r.get("quantity"),r.get("sku_id"));
-   db.update("UPDATE inventory_reservations SET status='RELEASED' WHERE order_id=? AND status='HELD'",id);
-   db.update("UPDATE orders SET status='EXPIRED' WHERE id=?",id);
-   db.update("INSERT INTO outbox_events(aggregate_id,event_type,payload) VALUES(?,'OrderExpired',JSON_OBJECT('orderId',?))",id,id);
-  }
+  for(var o:orders)orderService.expireLocked(orderService.lock(((Number)o.get("id")).longValue()));
  }
  @Scheduled(fixedDelay=5000)
  public void publish(){

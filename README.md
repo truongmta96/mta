@@ -1,6 +1,6 @@
 # MTA Mobile
 
-Bộ khung cửa hàng điện thoại: Java 17 / Spring Boot, React, MySQL 8.4, Redis, Kafka và Docker.
+Hệ thống cửa hàng điện thoại với thanh toán sandbox: Java 17 / Spring Boot, React, MySQL 8.4, Redis, Kafka và Docker.
 
 ## Chạy nhanh
 
@@ -16,21 +16,24 @@ Trong cloud được cấp session proxy và `CODEX_PROXY_CERT`, chạy `bash sc
 
 ## Những gì đã có
 
-- Giao diện responsive: danh sách điện thoại, tìm kiếm/lọc hãng, form tạo đơn, xem đơn, bảng tồn kho quản trị chỉ đọc.
+- Giao diện responsive cho khách/admin; quản trị thêm/sửa/xóa mềm/khôi phục sản phẩm, tài khoản, khách hàng; xem và cập nhật vòng đời đơn.
 - Giá lấy từ database; đặt hàng có validation, idempotency theo khách, cập nhật tồn kho có điều kiện, transaction tạo đơn/reservation/outbox.
 - Worker tự hết hạn đơn sau 15 phút và trả kho; publisher gửi outbox sang Kafka theo at-least-once.
-- Flyway migration: 17 bảng, khóa ngoại, check constraints, index và partition tháng cho audit.
+- Flyway V1–V6: 18 bảng nghiệp vụ, khóa ngoại, check constraints, index tìm kiếm và partition tháng cho audit.
+- Flash sale nhiều SKU: lịch mở bán, giá ưu đãi, quota và hạn mức mỗi khách; kiểm soát đồng thời bằng transaction.
+- Thanh toán sandbox, webhook HMAC có chống trùng/kiểm tra số tiền/thời gian, yêu cầu và duyệt hoàn toàn bộ, trả kho/quota đúng trạng thái.
+- Hồ sơ user có sửa thông tin/xóa mềm tài khoản bằng mật khẩu; quản trị bảo vệ admin cuối cùng và thu hồi phiên khi thay đổi tài khoản.
 - Catalog 6 điện thoại mẫu; tài khoản ADMIN/CUSTOMER phát triển được tạo với mật khẩu băm BCrypt khi bật cấu hình demo.
 
-## Giới hạn bản khởi tạo
+## Phạm vi hiện tại
 
-Đã có đăng nhập/đăng ký khách hàng, phân quyền ADMIN/CUSTOMER ở API và giao diện. Quản trị ghi dữ liệu, xóa mềm qua API, thanh toán/webhook/hoàn tiền và đặt flash sale chưa triển khai. Schema đã chuẩn bị dữ liệu tương ứng. API thanh toán trả 501; đặt SKU trong chiến dịch đang diễn ra trả 409 để không bán sai giá/quota. Banner sale là nội dung mẫu cố định; chưa đồng bộ chiến dịch qua API.
+Các màn hình trong bản khởi tạo đã được triển khai với API lưu dữ liệu. Theo lựa chọn của bạn, thanh toán và hoàn tiền dùng **sandbox**, không thu/chuyển tiền thật. Mở [hướng dẫn workflow](docs/commerce.md) để xem thao tác quản trị, flash sale, thanh toán, hoàn tiền, xóa mềm và cách nâng cấp không mất dữ liệu.
 
-Hiện API và worker chạy chung ứng dụng. Chưa có Kafka consumer nghiệp vụ, dead-letter queue hay bảo đảm thứ tự khi chạy nhiều publisher. Consumer tương lai phải chống trùng theo event ID. Redis đã cấu hình và kiểm tra kết nối, chưa dùng cache tồn kho để tránh hiển thị sai trong bản đầu. Chưa kiểm thử tải production.
+Hiện mỗi đơn gồm một SKU với số lượng lựa chọn; chưa có giỏ nhiều SKU, phí giao hàng hoặc hoàn tiền một phần. Session ở RAM một API instance; chưa có MFA/reset mật khẩu/rate limit. API và worker chạy chung ứng dụng; Kafka outbox at-least-once, chưa có consumer nghiệp vụ/DLQ. Redis đã cấu hình, chưa cache tồn kho. Chưa đánh giá tải production.
 
 ## SQL và dữ liệu lớn
 
-- `database/schema.sql`: tạo database `mta` và toàn bộ bảng thủ công.
+- `database/schema.sql`: tạo database `mta` và schema mới thủ công cho database trống. `database/upgrade_from_v2.sql` nâng schema cài thủ công từ V2; không chạy các file này nếu Flyway đang quản lý database.
 - `backend/src/main/resources/db/migration/`: Flyway tự tạo schema và catalog khi API khởi động. Chọn **một** cách khởi tạo database ứng dụng; không chạy schema.sql trước Flyway trên cùng database.
 - `bash scripts/seed-large.sh`: tạo database riêng `mta_benchmark`, không can thiệp dữ liệu ứng dụng. Script từ chối khi database đã tồn tại; không tự xóa dữ liệu. Nếu lần nạp lỗi, xem log và xử lý database thử nghiệm có chủ đích trước khi chạy lại.
 - `database/seed_large.sql`: sinh bằng SQL theo batch 10.000, transaction mỗi batch, giữ FK/CHECK hoạt động, không tải dump lớn vào Git.
@@ -54,4 +57,14 @@ Các file cấu hình có comment tiếng Việt. Xem [giải thích cấu hình
 
 ## Đăng nhập
 
-Sau khi build lại, tài khoản phát triển mặc định: **admin@mta.local / Admin@12345** và **user@mta.local / User@12345**. Bấm Đăng nhập hoặc Quản trị trên giao diện. Xem [ma trận quyền, cấu hình và API](docs/authentication.md). User chỉ được xem/đặt đơn của mình; admin xem các màn hình quản lý. Chạy `py scripts/auth-smoke.py` trên Windows để kiểm tra phân quyền.
+Sau khi build lại, tài khoản phát triển mặc định: **admin@mta.local / Admin@12345** và **user@mta.local / User@12345**. Bấm Đăng nhập hoặc Quản trị trên giao diện. Xem [ma trận quyền, cấu hình và API](docs/authentication.md). User chỉ được xem/đặt đơn của mình; admin quản lý dữ liệu, đơn, sale và yêu cầu hoàn tiền. Chạy `py scripts/auth-smoke.py` trên Windows để kiểm tra phân quyền.
+
+## Kiểm thử workflow trên Windows
+
+```powershell
+py scripts/commerce-smoke.py
+# Tùy chọn khi có Playwright/Chromium:
+py scripts/commerce-ui-smoke.py
+```
+
+Các kiểm tra tạo dữ liệu thử riêng và không xóa lịch sử. Xem [docs/commerce.md](docs/commerce.md) để kiểm tra thêm webhook HTTP có chữ ký và mô phỏng hết hạn với Docker. Không cần xóa volume khi cập nhật; Flyway tự áp dụng migration bổ sung.

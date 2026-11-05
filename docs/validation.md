@@ -57,3 +57,20 @@ Các kết quả ngày 04/11 ở trên là lịch sử phiên bản chưa có au
 - Không sửa migration V1/V2 và không reset database/volume. DemoAccounts tạo mới email admin/user khi cấu hình bật, không ghi đè mật khẩu tài khoản có sẵn.
 
 Giới hạn: quản trị hiện chỉ đọc; chưa có reset mật khẩu/MFA/rate limit đăng nhập; session lưu trong bộ nhớ một instance; chưa tích hợp thanh toán hoặc quota flash sale. Xem `authentication.md` để chạy lại và cấu hình triển khai.
+
+## Hoàn thiện quản trị, flash sale và thanh toán sandbox — 05/11/2026
+
+Các giới hạn giao diện/nghiệp vụ của hai phiên bản trước đã được triển khai theo phạm vi sandbox được người dùng chọn. Chi tiết: `commerce.md`.
+
+- Java 17 Docker build và React/Vite build thành công. Flyway nâng database hiện có qua V3–V6, không sửa V1/V2 hoặc xóa volume.
+- `commerce-smoke.py --database-checks` với khóa HMAC thử trùng cấu hình API: 4 khách tranh 3 suất → đúng 3 đơn; hạn mức mỗi khách được giữ; sale trùng lịch/chưa mở bị từ chối; không giảm tồn dưới lượng đang giữ.
+- Thanh toán tạo lại trả cùng attempt PENDING; thất bại tạo attempt mới; callback thành công gửi lặp không giữ/trừ kho lần hai. Webhook HTTP sai chữ ký, sai amount, timestamp cũ và JSON null bị từ chối; event ID cùng payload idempotent, khác nội dung bị từ chối.
+- Thanh toán đến sau khi hủy tự hoàn sandbox, không lấy lại kho. Đơn thử được đặt quá hạn qua SQL, worker thực sự chuyển EXPIRED và trả quota; callback đến sau đó ghi hoàn sandbox và không trả kho thêm lần nữa.
+- Hoàn trước giao trả reserved/quota; chuyển trạng thái đúng PAID → PROCESSING → SHIPPED → COMPLETED. Hoàn sau giao bị từ chối khi chưa nhận hàng trả, sau xác nhận mới cộng on_hand lại. Duyệt lặp không cộng kho hai lần.
+- Khách tự xóa bằng mật khẩu đúng làm hủy đơn chưa thanh toán, không xóa lịch sử trả tiền/hoàn. Admin khôi phục giữ nguyên ID/liên kết. Khóa, xóa mềm, khôi phục khách/tài khoản và bảo vệ admin đang dùng đã kiểm tra.
+- Tạo/sửa/khóa admin mới lưu tên hiển thị và vô hiệu hóa phiên cũ; tìm tiền tố/phân trang server và page không hợp lệ đã kiểm tra.
+- `commerce-ui-smoke.py`: Chromium thao tác tạo/sửa/xóa/khôi phục sản phẩm, tạo tài khoản, tạo sale từ giờ Việt Nam, user đăng ký → đặt sale → thanh toán sandbox → yêu cầu hoàn → admin duyệt → user sửa hồ sơ/xóa tài khoản. Viewport mobile 390px không tràn ngang, không pageerror.
+- `ui-smoke.py`, `auth-smoke.py`, `smoke.py` đều chạy lại thành công với API mới.
+- SQL schema và bản nâng cấp thủ công chứa đủ các migration hiện tại; XML hợp lệ, diff không có lỗi whitespace.
+
+Ảnh: `ui-payment.png`, `ui-refunds.png`, `ui-sales-mobile.png`. Toàn bộ giao dịch mô phỏng; không thu/chuyển tiền thật và không coi kiểm thử này là đánh giá tải production.

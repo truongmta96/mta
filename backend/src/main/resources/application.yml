@@ -46,3 +46,9 @@ app:
     enabled: ${APP_DEMO_ACCOUNTS_ENABLED:false}
     admin-password: ${APP_DEMO_ADMIN_PASSWORD:}
     user-password: ${APP_DEMO_USER_PASSWORD:}
+
+  payment:
+    # Sandbox chỉ mô phỏng; không thu tiền thật. Không bật endpoint sandbox cho cổng thật.
+    sandbox-enabled: ${PAYMENT_SANDBOX_ENABLED:false}
+    # Để trống trong demo sẽ tạo khóa HMAC ngẫu nhiên ở mỗi lần khởi động, không gửi ra client.
+    webhook-secret: ${PAYMENT_WEBHOOK_SECRET:}

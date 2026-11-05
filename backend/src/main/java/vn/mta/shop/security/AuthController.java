@@ -22,9 +22,9 @@ import org.springframework.web.server.ResponseStatusException;
 @RestController @RequestMapping("/api/auth")
 public class AuthController {
     private final AuthenticationManager manager; private final SecurityContextRepository contexts;
-    private final AccountService accounts; private final JdbcTemplate db; private final PasswordEncoder encoder; private final CsrfTokenRepository csrfTokens;
-    public AuthController(AuthenticationManager manager,SecurityContextRepository contexts,AccountService accounts,JdbcTemplate db,PasswordEncoder encoder,CsrfTokenRepository csrfTokens) {
-        this.manager=manager;this.contexts=contexts;this.accounts=accounts;this.db=db;this.encoder=encoder;this.csrfTokens=csrfTokens;
+    private final AccountService accounts; private final JdbcTemplate db; private final vn.mta.shop.ManagementService management; private final PasswordEncoder encoder; private final CsrfTokenRepository csrfTokens;
+    public AuthController(AuthenticationManager manager,SecurityContextRepository contexts,AccountService accounts,JdbcTemplate db,PasswordEncoder encoder,CsrfTokenRepository csrfTokens,vn.mta.shop.ManagementService management) {
+        this.manager=manager;this.contexts=contexts;this.accounts=accounts;this.db=db;this.encoder=encoder;this.csrfTokens=csrfTokens;this.management=management;
     }
     public record Credentials(@NotBlank @Email @Size(max=190) String email,@NotBlank @Size(max=72) String password, @Pattern(regexp="ADMIN|CUSTOMER") String portal) {}
     public record Registration(@NotBlank @Email @Size(max=190) String email,
@@ -49,6 +49,12 @@ public class AuthController {
         // Đổi CSRF token sau khi đổi danh tính; client lấy token mới trước lần POST kế tiếp.
         csrfTokens.saveToken(null,request,response);
         return accounts.profile(authenticated.getName());
+    }
+    public record DeleteAccount(@NotBlank @Size(max=72) String password){}
+    @DeleteMapping("/account") public Map<String,String> deleteAccount(@Valid @RequestBody DeleteAccount body,Authentication authentication,HttpServletRequest request){
+        management.deleteSelf(authentication.getName(),body.password());
+        var session=request.getSession(false);if(session!=null)session.invalidate();SecurityContextHolder.clearContext();
+        return Map.of("message","Đã xóa mềm tài khoản. Lịch sử đơn được giữ lại.");
     }
     @PostMapping("/register") @Transactional public Map<String,String> register(@Valid @RequestBody Registration body) {
         // BCrypt giới hạn 72 bytes, không chỉ 72 ký tự Unicode.

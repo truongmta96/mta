@@ -1,0 +1,126 @@
+"""Thao tác thật trên giao diện CRUD → sale → thanh toán → hoàn tiền → xóa tài khoản.
+Tạo dữ liệu thử riêng; cần Docker Compose, tài khoản admin demo và Playwright/Chromium.
+"""
+import os,shutil,uuid,datetime
+from zoneinfo import ZoneInfo
+from playwright.sync_api import sync_playwright
+from auth_client import Client
+run=uuid.uuid4().hex[:8]
+name='UI Phone '+run
+sale_name='UI Sale '+run
+email='ui-'+run+'@example.invalid'
+customer='UI Customer '+run
+password='UI-Only@12345'
+base=os.environ.get('MTA_WEB_URL','http://127.0.0.1:5173')
+admin=Client();assert admin.login('admin@mta.local',os.environ.get('MTA_ADMIN_PASSWORD','Admin@12345'),'ADMIN')[0]==200
+with sync_playwright() as p:
+    executable=os.environ.get('PLAYWRIGHT_CHROMIUM') or shutil.which('chromium')
+    browser=p.chromium.launch(**({'executable_path':executable} if executable else {}),headless=True,args=['--no-sandbox'])
+    page=browser.new_page(viewport={'width':1440,'height':1050},timezone_id='Asia/Ho_Chi_Minh')
+    errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+    page.on('dialog',lambda dialog:dialog.accept())
+    def login(email,password,admin_mode=False):
+        page.goto(base+('/#/admin-login' if admin_mode else '/#/login'))
+        page.locator('input[name=email]').fill(email)
+        page.locator('input[name=password]').fill(password)
+        page.locator('form button.primary').click()
+        page.get_by_role('button',name='Đăng xuất',exact=True).wait_for()
+    def logout():
+        page.get_by_role('button',name='Đăng xuất',exact=True).click()
+        page.get_by_role('button',name='Quản trị',exact=True).wait_for()
+    def row(text):return page.locator('tbody tr').filter(has_text=text)
+    login('admin@mta.local',os.environ.get('MTA_ADMIN_PASSWORD','Admin@12345'),True)
+    page.get_by_role('button',name='Thêm mới',exact=True).click()
+    page.get_by_label('Tên sản phẩm',exact=True).fill(name)
+    page.get_by_label('Thương hiệu',exact=True).fill('UI Test')
+    page.get_by_label('Màu sắc',exact=True).fill('Green')
+    page.get_by_label('Giá bán (VND)',exact=True).fill('100000')
+    page.get_by_label('Tồn vật lý',exact=True).fill('5')
+    page.get_by_role('button',name='Lưu thay đổi',exact=True).click()
+    row(name).wait_for()
+    sku=int(row(name).locator('td').first.inner_text())
+    row(name).get_by_role('button',name='Sửa',exact=True).click()
+    page.get_by_label('Mô tả',exact=True).fill('Created and edited through browser')
+    page.get_by_role('button',name='Lưu thay đổi',exact=True).click()
+    page.locator('.edit-modal').wait_for(state='hidden')
+    row(name).get_by_role('button',name='Xóa mềm',exact=True).click()
+    row(name).get_by_role('button',name='Khôi phục',exact=True).wait_for()
+    row(name).get_by_role('button',name='Khôi phục',exact=True).click()
+    row(name).get_by_role('button',name='Sửa',exact=True).wait_for()
+    # Tạo tài khoản qua màn quản trị, xác minh dữ liệu đã lưu.
+    page.get_by_role('button',name='Tài khoản',exact=True).click()
+    page.get_by_role('button',name='Thêm mới',exact=True).click()
+    page.get_by_label('Email',exact=True).fill('managed-'+run+'@example.invalid')
+    page.get_by_label('Họ và tên',exact=True).fill('Managed '+run)
+    page.get_by_label('Mật khẩu',exact=True).fill(password)
+    page.get_by_role('button',name='Lưu thay đổi',exact=True).click()
+    row('managed-'+run).wait_for()
+    # Tạo sale đang mở trong giờ Việt Nam, API lưu UTC.
+    page.get_by_role('button',name='Chiến dịch sale',exact=True).click()
+    page.get_by_role('button',name='Thêm mới',exact=True).click()
+    page.get_by_label('Tên chiến dịch',exact=True).fill(sale_name)
+    now=datetime.datetime.now(ZoneInfo('Asia/Ho_Chi_Minh'))
+    page.get_by_label('Bắt đầu (giờ trên máy bạn)',exact=True).fill((now-datetime.timedelta(minutes=1)).strftime('%Y-%m-%dT%H:%M'))
+    page.get_by_label('Kết thúc (giờ trên máy bạn)',exact=True).fill((now+datetime.timedelta(hours=1)).strftime('%Y-%m-%dT%H:%M'))
+    page.get_by_label('Mã SKU',exact=True).fill(str(sku))
+    page.get_by_label('Giá sale (VND)',exact=True).fill('80000')
+    page.get_by_label('Số suất',exact=True).fill('3')
+    page.get_by_role('button',name='Lưu thay đổi',exact=True).click()
+    row(sale_name).wait_for()
+    campaign=int(row(sale_name).locator('td').first.inner_text())
+    logout()
+    # Đăng ký user thật qua form.
+    page.goto(base+'/#/register')
+    page.locator('input[name=name]').fill(customer)
+    page.locator('input[name=email]').fill(email)
+    page.locator('input[name=password]').fill(password)
+    page.locator('form button.primary').click()
+    page.get_by_role('status').filter(has_text='Tài khoản đã sẵn sàng').wait_for()
+    login(email,password)
+    page.get_by_role('button',name='Flash sale',exact=True).click()
+    card=page.locator('.sale-campaign').filter(has_text=sale_name)
+    card.get_by_role('button',name='Mua ưu đãi',exact=True).wait_for()
+    assert card.get_by_role('button',name='Mua ưu đãi',exact=True).is_enabled()
+    card.get_by_role('button',name='Mua ưu đãi',exact=True).click()
+    page.locator('input[name=phone]').fill('SYNTHETIC')
+    page.locator('input[name=address]').fill('UI test only')
+    page.get_by_role('button',name='Xác nhận đặt hàng',exact=True).click()
+    page.get_by_role('button',name='Chi tiết / Thanh toán',exact=True).first.wait_for()
+    order=int(page.locator('tbody tr').first.locator('td').first.inner_text().strip('#'))
+    page.get_by_role('button',name='Chi tiết / Thanh toán',exact=True).first.click()
+    page.get_by_role('button',name='Thanh toán sandbox',exact=True).click()
+    page.get_by_role('button',name='Mô phỏng thành công',exact=True).click()
+    page.locator('.order-detail .status-badge').filter(has_text='Đã thanh toán').wait_for()
+    page.locator('.order-detail textarea').fill('UI refund request')
+    page.get_by_role('button',name='Gửi yêu cầu hoàn tiền',exact=True).click()
+    page.locator('.refund-record').filter(has_text='Chờ duyệt').wait_for()
+    page.screenshot(path='/tmp/mta-payment.png',full_page=True)
+    page.get_by_role('button',name='Đóng chi tiết đơn',exact=True).click()
+    logout()
+    login('admin@mta.local',os.environ.get('MTA_ADMIN_PASSWORD','Admin@12345'),True)
+    page.get_by_role('button',name='Hoàn tiền',exact=True).click()
+    row(customer).get_by_role('button',name='Xử lý',exact=True).click()
+    page.get_by_role('button',name='Duyệt hoàn toàn bộ',exact=True).click()
+    row(customer).filter(has_text='Thành công').wait_for()
+    page.screenshot(path='/tmp/mta-refunds.png',full_page=True)
+    logout();login(email,password)
+    page.get_by_role('button',name='Đơn hàng',exact=True).click()
+    page.locator('tbody tr').filter(has_text='Đã hoàn tiền').wait_for()
+    page.get_by_role('button',name='Hồ sơ',exact=True).click()
+    page.get_by_label('Họ và tên',exact=True).fill(customer+' Updated')
+    page.get_by_role('button',name='Lưu hồ sơ',exact=True).click()
+    page.get_by_role('status').filter(has_text='Đã cập nhật hồ sơ').wait_for()
+    page.get_by_label('Mật khẩu xác nhận',exact=True).fill(password)
+    page.get_by_role('button',name='Xóa mềm tài khoản của tôi',exact=True).click()
+    page.get_by_role('button',name='Đăng nhập',exact=True).wait_for()
+    page.set_viewport_size({'width':390,'height':844})
+    page.get_by_role('button',name='Flash sale',exact=True).click()
+    page.locator('.sale-campaign').first.wait_for()
+    assert page.evaluate('document.documentElement.scrollWidth<=window.innerWidth')
+    page.screenshot(path='/tmp/mta-sales-mobile.png',full_page=True)
+    assert not errors,errors
+    browser.close()
+# Dữ liệu thử được ẩn khỏi cửa hàng, lịch sử đơn vẫn giữ cho đối soát.
+assert admin.request('/admin/campaigns/'+str(campaign),method='DELETE')[0]==200
+assert admin.request('/admin/products/'+str(sku),method='DELETE')[0]==200
+print('PASS UI: product create/edit/delete/restore, account create, campaign create + UTC time, user registration, sale order, sandbox payment, refund approval, profile edit/self-delete, mobile')

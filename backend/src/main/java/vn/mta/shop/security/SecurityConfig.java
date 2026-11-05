@@ -34,11 +34,11 @@ public class SecurityConfig {
     @Bean SecurityFilterChain security(HttpSecurity http, AccountService accounts, SecurityContextRepository repository, CsrfTokenRepository csrfTokens) throws Exception {
         // CSRF mặc định dùng token trong session; React lấy token qua /api/auth/csrf.
         // Chỉ permit đúng method/endpoint cần thiết. Các đường dẫn còn lại bị từ chối.
-        http.csrf(c -> c.csrfTokenRepository(csrfTokens)).authorizeHttpRequests(auth -> auth
-            .requestMatchers(HttpMethod.GET,"/api/health","/api/products","/api/campaigns","/api/auth/csrf").permitAll()
-            .requestMatchers(HttpMethod.POST,"/api/auth/login","/api/auth/register").permitAll()
+        http.csrf(c -> c.csrfTokenRepository(csrfTokens).ignoringRequestMatchers("/api/payments/webhook")).authorizeHttpRequests(auth -> auth
+            .requestMatchers(HttpMethod.GET,"/api/health","/api/products","/api/campaigns","/api/auth/csrf","/api/payments/config").permitAll()
+            .requestMatchers(HttpMethod.POST,"/api/auth/login","/api/auth/register","/api/payments/webhook").permitAll()
             .requestMatchers("/api/admin/**").hasRole("ADMIN")
-            .requestMatchers("/api/orders","/api/orders/**","/api/customer").hasRole("CUSTOMER")
+            .requestMatchers("/api/orders","/api/orders/**","/api/customer","/api/auth/account","/api/payments/sandbox/**").hasRole("CUSTOMER")
             .requestMatchers("/api/auth/me").authenticated()
             .requestMatchers("/error").permitAll()
             .anyRequest().denyAll())
@@ -59,7 +59,8 @@ public class SecurityConfig {
                     boolean valid;
                     try {
                         var a = accounts.account(auth.getName());
-                        valid = accounts.active(a) && auth.getAuthorities().stream()
+                        valid = accounts.active(a) && auth.getPrincipal() instanceof AccountService.AccountUser user
+                            && user.version()==((Number)a.get("session_version")).intValue() && auth.getAuthorities().stream()
                             .anyMatch(g -> g.getAuthority().equals("ROLE_"+a.get("role")));
                     } catch (org.springframework.security.core.userdetails.UsernameNotFoundException ex) { valid=false; }
                     if (!valid) {

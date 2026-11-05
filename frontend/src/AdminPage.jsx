@@ -1,36 +1,52 @@
-import React, {useEffect, useState} from 'react';
-import {Package, ShoppingBag, Users, UserRound, Zap, ShieldCheck} from 'lucide-react';
+import React,{useEffect,useState} from 'react';
+import {Package,ShoppingBag,Users,UserRound,Zap,ShieldCheck,RotateCcw,ClipboardList,Plus,X} from 'lucide-react';
 import {api} from './api';
-const sections = [
-    ['products','Sản phẩm',Package,[['id','SKU'],['name','Sản phẩm'],['price','Giá bán'],['on_hand','Trong kho'],['reserved','Đang giữ'],['available','Khả dụng']]],
-    ['orders','Đơn hàng',ShoppingBag,[['id','Mã đơn'],['customer','Khách hàng'],['status','Trạng thái'],['total','Tổng tiền'],['created_at','Ngày tạo']]],
-    ['accounts','Tài khoản',Users,[['id','ID'],['email','Email'],['role','Vai trò'],['status','Trạng thái'],['deleted_at','Ngày xóa']]],
-    ['customers','Khách hàng',UserRound,[['id','ID'],['full_name','Họ tên'],['email','Email'],['phone','Điện thoại'],['deleted_at','Ngày xóa']]],
-    ['campaigns','Chiến dịch sale',Zap,[['id','ID'],['name','Chiến dịch'],['starts_at','Bắt đầu'],['ends_at','Kết thúc'],['status','Trạng thái']]]
+import {OrderDetail,money,states} from './OrderPages';
+const sections=[
+ ['products','Sản phẩm',Package,[['id','SKU'],['name','Sản phẩm'],['price','Giá bán'],['on_hand','Trong kho'],['reserved','Đang giữ'],['available','Khả dụng'],['deleted_at','Ngày xóa']]],
+ ['orders','Đơn hàng',ShoppingBag,[['id','Mã đơn'],['customer','Khách hàng'],['status','Trạng thái'],['total','Tổng tiền'],['created_at','Ngày tạo']]],
+ ['accounts','Tài khoản',Users,[['id','ID'],['email','Email'],['role','Vai trò'],['status','Trạng thái'],['deleted_at','Ngày xóa']]],
+ ['customers','Khách hàng',UserRound,[['id','ID'],['full_name','Họ tên'],['email','Email'],['phone','Điện thoại'],['deleted_at','Ngày xóa']]],
+ ['campaigns','Chiến dịch sale',Zap,[['id','ID'],['name','Chiến dịch'],['starts_at','Bắt đầu'],['ends_at','Kết thúc'],['status','Trạng thái']]],
+ ['refunds','Hoàn tiền',RotateCcw,[['id','ID'],['order_id','Đơn hàng'],['customer','Khách hàng'],['amount','Số tiền'],['status','Trạng thái'],['reason','Lý do']]],
+ ['audit','Nhật ký',ClipboardList,[['id','ID'],['actor_id','Tài khoản'],['action','Thao tác'],['entity_type','Đối tượng'],['entity_id','Mã'],['created_at','Thời gian']]]
 ];
-export default function AdminPage() {
-    const [section,setSection] = useState('products');
-    const [rows,setRows] = useState([]);
-    const [error,setError] = useState('');
-    const [loading,setLoading] = useState(true);
-    useEffect(()=>{
-        let current = true; setRows([]);setError('');setLoading(true);
-        api('/admin/'+section).then(data=>{if(current)setRows(data)}).catch(e=>{if(current)setError(e.message)})
-            .finally(()=>{if(current)setLoading(false)});
-        return ()=>{current=false};
-    },[section]);
-    const current=sections.find(s=>s[0]===section);
-    function value(key,v) {
-        if(v==null)return '—';
-        if(['price','total'].includes(key))return new Intl.NumberFormat('vi-VN').format(v)+' ₫';
-        if(key.endsWith('_at'))return new Date(v).toLocaleString('vi-VN');
-        return String(v);
-    }
-    return <section className="admin-layout">
-        <aside className="admin-nav"><div className="admin-nav-title"><ShieldCheck size={20}/> QUẢN TRỊ</div>{sections.map(([id,name,Icon])=><button key={id} className={id===section?'selected':''} onClick={()=>setSection(id)}><Icon size={18}/>{name}</button>)}<small>Quyền truy cập: ADMIN</small></aside>
-        <div className="admin-content"><div className="eyebrow">KHÔNG GIAN QUẢN TRỊ</div><h1>{current[1]}</h1><p>Dữ liệu trực tiếp · Hiển thị tối đa 100 bản ghi mới nhất. Các thao tác thêm/sửa sẽ được bổ sung sau.</p>
-        {error&&<div className="alert" role="alert">{error}</div>}
-        {loading?<p role="status">Đang tải dữ liệu...</p>:<><div className="table-wrap"><table><thead><tr>{current[3].map(([key,label])=><th key={key}>{label}</th>)}</tr></thead><tbody>{rows.map(row=><tr key={row.id}>{current[3].map(([key])=><td key={key}>{value(key,row[key])}</td>)}</tr>)}</tbody></table></div>{!rows.length&&!error&&<p className="empty">Chưa có dữ liệu.</p>}</>}
-        </div>
-    </section>;
+const toLocal=value=>{const d=new Date(value);return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16)};
+const defaults={products:{name:'',brand:'',description:'',storageGb:128,color:'',price:10000000,onHand:10},accounts:{email:'',name:'',password:'',role:'CUSTOMER',status:'ACTIVE'},customers:{name:'',phone:''}};
+export default function AdminPage(){
+ const [section,setSection]=useState('products'),[rows,setRows]=useState([]),[products,setProducts]=useState([]),[error,setError]=useState(''),[notice,setNotice]=useState(''),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[edit,setEdit]=useState(null),[detail,setDetail]=useState(null),[refund,setRefund]=useState(null),[received,setReceived]=useState(false),[search,setSearch]=useState(''),[query,setQuery]=useState(''),[page,setPage]=useState(0);
+ const load=()=>api('/admin/'+section+'?page='+page+'&q='+encodeURIComponent(query)).then(setRows);
+ useEffect(()=>{let current=true;setRows([]);setError('');setNotice('');setLoading(true);setEdit(null);api('/admin/'+section+'?page='+page+'&q='+encodeURIComponent(query)).then(data=>{if(current)setRows(data)}).catch(e=>{if(current)setError(e.message)}).finally(()=>{if(current)setLoading(false)});return()=>{current=false}},[section,page,query]);
+ useEffect(()=>{api('/admin/products').then(setProducts).catch(e=>setError(e.message))},[section]);
+ async function action(fn){setBusy(true);setError('');setNotice('');try{await fn();await load();setNotice('Đã lưu thay đổi.')}catch(e){setError(e.message);throw e}finally{setBusy(false)}}
+ const send=(path,method,body)=>api('/admin/'+path,{method,headers:{'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});
+ const safe=fn=>action(fn).catch(()=>{});
+ function open(row){let data;if(section==='products')data=row?{name:row.name,brand:row.brand,description:row.description||'',storageGb:row.storage_gb,color:row.color,price:row.price,onHand:row.on_hand}:{...defaults.products};
+ else if(section==='accounts')data=row?{email:row.email,name:row.name,password:'',role:row.role,status:row.status==='DELETED'?'LOCKED':row.status}:{...defaults.accounts};
+ else if(section==='customers')data={name:row.full_name,phone:row.phone||''};
+ else data=row?{name:row.name,startsAt:toLocal(row.starts_at),endsAt:toLocal(row.ends_at),status:['DRAFT','SCHEDULED','ACTIVE'].includes(row.status)?row.status:'DRAFT',items:row.items.map(i=>({skuId:i.sku_id,price:i.sale_price,quota:i.quota,perCustomerLimit:i.per_customer_limit}))}:{name:'',startsAt:toLocal(Date.now()+3600000),endsAt:toLocal(Date.now()+86400000),status:'SCHEDULED',items:[{skuId:products[0]?.id||'',price:10000000,quota:10,perCustomerLimit:1}]};setError('');setEdit({id:row?.id,data})}
+ const field=(name,value)=>setEdit(e=>({...e,data:{...e.data,[name]:value}}));
+ async function save(e){e.preventDefault();const data={...edit.data};if(section==='products')for(const k of ['storageGb','price','onHand'])data[k]=Number(data[k]);if(section==='campaigns'){data.startsAt=new Date(data.startsAt).toISOString().slice(0,19);data.endsAt=new Date(data.endsAt).toISOString().slice(0,19);data.items=data.items.map(i=>({skuId:Number(i.skuId),price:Number(i.price),quota:Number(i.quota),perCustomerLimit:Number(i.perCustomerLimit)}));}await safe(async()=>{await send(section+(edit.id?'/'+edit.id:''),edit.id?'PUT':'POST',data);setEdit(null)})}
+ function remove(row){if(window.confirm('Xóa mềm bản ghi này? Dữ liệu lịch sử vẫn được giữ; các đơn chưa thanh toán của tài khoản/khách bị xóa sẽ được hủy.'))safe(()=>send(section+'/'+row.id,'DELETE'))}
+ function restore(row){safe(()=>send(section+'/'+row.id+'/restore','POST'))}
+ function input(key,label,type='text',extra={}){return <label key={key}>{label}<input type={type} value={edit.data[key]} onChange={e=>field(key,e.target.value)} {...extra}/></label>}
+ function value(key,v){if(v==null)return '—';if(['price','total','amount'].includes(key))return money(v);if(key.endsWith('_at'))return new Date(v).toLocaleString('vi-VN');return states[v]||String(v)}
+ const current=sections.find(s=>s[0]===section),filtered=rows;
+ return <section className="admin-layout"><aside className="admin-nav"><div className="admin-nav-title"><ShieldCheck size={20}/> QUẢN TRỊ</div>{sections.map(([id,name,Icon])=><button key={id} className={id===section?'selected':''} disabled={busy} onClick={()=>{setSection(id);setPage(0);setQuery('');setSearch('')}}><Icon size={18}/>{name}</button>)}<small>Quyền truy cập: ADMIN</small></aside><div className="admin-content"><div className="eyebrow">KHÔNG GIAN QUẢN TRỊ</div><div className="page-heading"><h1>{current[1]}</h1>{['products','accounts','campaigns'].includes(section)&&<button className="primary" onClick={()=>open()}><Plus size={16}/> Thêm mới</button>}</div><p>{section==='refunds'?'Hoàn tiền sandbox, không chuyển tiền thật. Chỉ xác nhận nhận hàng khi đã kiểm tra hàng trả.':'Thêm/sửa dữ liệu và xóa mềm để giữ nguyên lịch sử liên quan.'}</p><form className="list-search" onSubmit={e=>{e.preventDefault();setQuery(search.trim());setPage(0)}}><label>Tìm theo tiền tố<input value={search} maxLength={190} onChange={e=>setSearch(e.target.value)} placeholder={section==='accounts'?'Email...':'Tên / thao tác...'}/></label><button className="secondary-button">Tìm</button></form>{error&&<div className="alert" role="alert">{error}</div>}{notice&&<div className="notice" role="status">{notice}</div>}
+ {loading?<p role="status">Đang tải dữ liệu...</p>:<><div className="table-wrap"><table><thead><tr>{current[3].map(([key,label])=><th key={key}>{label}</th>)}{section!=='audit'&&<th>Thao tác</th>}</tr></thead><tbody>{filtered.map(row=><tr key={row.id} className={row.deleted_at?'deleted-row':''}>{current[3].map(([key])=><td key={key}>{value(key,row[key])}</td>)}{section!=='audit'&&<td><div className="table-actions">
+ {['products','accounts','customers'].includes(section)&&(row.deleted_at?<button disabled={busy} onClick={()=>restore(row)}>Khôi phục</button>:<><button disabled={busy} onClick={()=>open(row)}>Sửa</button><button disabled={busy} className="text-danger" onClick={()=>remove(row)}>Xóa mềm</button></>)}
+ {section==='orders'&&<button onClick={()=>setDetail(row.id)}>Chi tiết</button>}
+ {section==='campaigns'&&!row.deleted_at&&<><button disabled={busy} onClick={()=>open(row)}>Sửa</button>{!['ENDED','CANCELLED'].includes(row.status)&&<button disabled={busy} onClick={()=>safe(()=>send('campaigns/'+row.id,'PATCH',{status:'ENDED'}))}>Kết thúc</button>}<button disabled={busy} className="text-danger" onClick={()=>remove(row)}>Xóa mềm</button></>}
+ {section==='refunds'&&<><button onClick={()=>setDetail(row.order_id)}>Xem đơn</button>{row.status==='REQUESTED'&&<button onClick={()=>{setRefund(row);setReceived(false);setError('')}}>Xử lý</button>}</>}
+ </div></td>}</tr>)}</tbody></table></div>{!filtered.length&&!error&&<p className="empty">Không có dữ liệu phù hợp.</p>}<div className="pagination"><button className="secondary-button" disabled={page===0||loading} onClick={()=>setPage(page-1)}>← Trang trước</button><small>Trang {page+1} · {rows.length} bản ghi</small><button className="secondary-button" disabled={rows.length<50||loading} onClick={()=>setPage(page+1)}>Trang sau →</button></div></>}
+ </div>
+ {edit&&<div className="overlay"><section className="modal edit-modal"><button className="close" aria-label="Đóng biểu mẫu" onClick={()=>setEdit(null)}><X/></button><div className="eyebrow">{edit.id?'CẬP NHẬT':'TẠO MỚI'}</div><h2>{current[1]}{edit.id?' #'+edit.id:''}</h2>{error&&<div className="auth-error" role="alert">{error}</div>}<form className="edit-form" onSubmit={save}>
+ {section==='products'&&<>{input('name','Tên sản phẩm','text',{required:true,maxLength:200})}{input('brand','Thương hiệu','text',{required:true,maxLength:80})}<label>Mô tả<textarea value={edit.data.description} maxLength={10000} onChange={e=>field('description',e.target.value)}/></label><div className="form-grid">{input('storageGb','Dung lượng (GB)','number',{required:true,min:1,max:4096})}{input('color','Màu sắc','text',{required:true,maxLength:40})}{input('price','Giá bán (VND)','number',{required:true,min:1,step:'0.01'})}{input('onHand','Tồn vật lý','number',{required:true,min:0})}</div><p>Tồn vật lý không được nhỏ hơn lượng đang giữ cho đơn hàng.</p></>}
+ {section==='accounts'&&<>{input('email','Email','email',{required:true,maxLength:190})}{input('name','Họ và tên','text',{required:true,maxLength:150})}<label>Vai trò<select value={edit.data.role} onChange={e=>field('role',e.target.value)}><option value="CUSTOMER">Khách hàng</option><option value="ADMIN">Quản trị viên</option></select></label><label>Trạng thái<select value={edit.data.status} onChange={e=>field('status',e.target.value)}><option value="ACTIVE">Hoạt động</option><option value="LOCKED">Khóa đăng nhập</option></select></label>{input('password',edit.id?'Mật khẩu mới (để trống để giữ nguyên)':'Mật khẩu','password',{required:!edit.id,minLength:10,maxLength:72,autoComplete:'new-password'})}<p>Đổi tài khoản sẽ thu hồi phiên đăng nhập cũ. Không được tự khóa/xóa/hạ quyền admin đang dùng.</p></>}
+ {section==='customers'&&<>{input('name','Họ và tên','text',{required:true,maxLength:150})}{input('phone','Điện thoại','text',{maxLength:30})}</>}
+ {section==='campaigns'&&<>{input('name','Tên chiến dịch','text',{required:true,maxLength:150})}<div className="form-grid">{input('startsAt','Bắt đầu (giờ trên máy bạn)','datetime-local',{required:true})}{input('endsAt','Kết thúc (giờ trên máy bạn)','datetime-local',{required:true})}</div><label>Trạng thái<select value={edit.data.status} onChange={e=>field('status',e.target.value)}><option value="DRAFT">Nháp</option><option value="SCHEDULED">Lên lịch</option><option value="ACTIVE">Mở theo khung giờ</option></select></label><h3>Sản phẩm tham gia</h3><datalist id="sku-options">{products.filter(p=>!p.deleted_at).map(p=><option key={p.id} value={p.id}>{p.name} · {p.color} · {p.storage_gb}GB</option>)}</datalist>{edit.data.items.map((item,index)=><div className="campaign-item-form" key={index}>{[['skuId','Mã SKU'],['price','Giá sale (VND)'],['quota','Số suất'],['perCustomerLimit','Tối đa/khách']].map(([key,label])=><label key={key}>{label}<input type="number" list={key==='skuId'?'sku-options':undefined} min="1" max={key==='perCustomerLimit'?5:undefined} required value={item[key]} onChange={e=>field('items',edit.data.items.map((i,n)=>n===index?{...i,[key]:e.target.value}:i))}/></label>)}<button type="button" className="text-danger" disabled={edit.data.items.length===1} onClick={()=>field('items',edit.data.items.filter((_,n)=>n!==index))}>Bỏ SKU</button></div>)}<button type="button" className="secondary-button" onClick={()=>field('items',[...edit.data.items,{skuId:'',price:10000000,quota:10,perCustomerLimit:1}])}>+ Thêm SKU</button><p>Không cho hai sale công khai trùng thời gian cho cùng SKU. Khi đã có đơn, chỉ được kết thúc/hủy chiến dịch để bảo toàn quota và lịch sử.</p></>}
+ <button disabled={busy} className="primary">{busy?'Đang lưu...':'Lưu thay đổi'}</button></form></section></div>}
+ {detail&&<OrderDetail id={detail} admin onClose={()=>setDetail(null)} onChange={()=>load().catch(e=>setError(e.message))}/>}
+ {refund&&<div className="overlay"><section className="modal"><button className="close" aria-label="Đóng xử lý hoàn tiền" onClick={()=>setRefund(null)}><X/></button><div className="eyebrow">HOÀN TIỀN SANDBOX</div><h2>Yêu cầu #{refund.id}</h2><b>{money(refund.amount)}</b><p>{refund.reason}</p>{error&&<div className="auth-error" role="alert">{error}</div>}<label className="checkbox-label"><input type="checkbox" checked={received} onChange={e=>setReceived(e.target.checked)}/> Đã nhận lại và kiểm tra hàng trả (bắt buộc nếu đơn đã gửi)</label><div className="action-row"><button disabled={busy} className="primary" onClick={()=>safe(async()=>{await send('refunds/'+refund.id+'/decision','POST',{approve:true,returnReceived:received});setRefund(null)})}>Duyệt hoàn toàn bộ</button><button disabled={busy} className="danger-button" onClick={()=>safe(async()=>{await send('refunds/'+refund.id+'/decision','POST',{approve:false,returnReceived:false});setRefund(null)})}>Từ chối</button></div></section></div>}
+ </section>
 }

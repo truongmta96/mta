@@ -47,3 +47,7 @@ Khi chủ động thay dependency, dùng npm để cập nhật và commit cả 
 ## Cấu hình đăng nhập bổ sung
 
 `spring-boot-starter-security` trong pom.xml bật thư viện xác thực/phân quyền. Quy tắc URL và role nằm trong `SecurityConfig.java`; không phải mọi thư viện Security mặc định đều được bật. `application.yml` cấu hình timeout/cookie của session và cờ seeder tài khoản mẫu. Compose chuyển tiếp `APP_DEMO_ACCOUNTS_ENABLED`, hai biến mật khẩu demo và `SESSION_COOKIE_SECURE`; xem [đăng nhập và phân quyền](authentication.md). Seeder chỉ tạo mới tài khoản chưa có, không reset dữ liệu cũ.
+
+## Thanh toán sandbox
+
+`app.payment.sandbox-enabled` mặc định false ngoài Compose; Compose truyền PAYMENT_SANDBOX_ENABLED với mặc định true cho phát triển. PAYMENT_WEBHOOK_SECRET là khóa ký HMAC cho webhook; để trống trong demo sinh khóa ngẫu nhiên tại runtime và không trả cho browser. Xem `docs/commerce.md` để kiểm thử chữ ký, timestamp và số tiền. Không thêm khóa thật vào file cấu hình hoặc Git.

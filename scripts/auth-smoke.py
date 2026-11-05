@@ -41,7 +41,7 @@ assert first.request('/orders', body, headers={'Idempotency-Key':key})[1]['id'] 
 assert order['id'] in [o['id'] for o in first.request('/orders')[1]]
 assert order['id'] not in [o['id'] for o in second.request('/orders')[1]]
 assert second.request(f"/orders/{order['id']}/payments", {})[0] == 404
-assert first.request(f"/orders/{order['id']}/payments", {})[0] == 501
+assert first.request(f"/orders/{order['id']}/payments", {})[0] == 200
 assert Client().login(f'auth-{run}-second@example.invalid', password, 'ADMIN')[0] == 403
 
 status, identity = admin.login('admin@mta.local', os.environ.get('MTA_ADMIN_PASSWORD','Admin@12345'), 'ADMIN')
