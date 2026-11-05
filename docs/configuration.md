@@ -51,3 +51,7 @@ Khi chủ động thay dependency, dùng npm để cập nhật và commit cả 
 ## Thanh toán sandbox
 
 `app.payment.sandbox-enabled` mặc định false ngoài Compose; Compose truyền PAYMENT_SANDBOX_ENABLED với mặc định true cho phát triển. PAYMENT_WEBHOOK_SECRET là khóa ký HMAC cho webhook; để trống trong demo sinh khóa ngẫu nhiên tại runtime và không trả cho browser. Xem `docs/commerce.md` để kiểm thử chữ ký, timestamp và số tiền. Không thêm khóa thật vào file cấu hình hoặc Git.
+
+## Redis fallback
+
+application.yml cấu hình timeout Redis, TTL và backoff của app.cache. Compose chuyển tiếp các biến CATALOG_CACHE_* và REDIS_* tương ứng. RedisClientConfig giữ connect timeout khi custom Lettuce ClientOptions, giới hạn hàng đợi và từ chối lệnh khi disconnected. Xem `cache-fallback.md` để hiểu giới hạn dữ liệu cache và cách kiểm thử outage.

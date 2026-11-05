@@ -29,7 +29,7 @@ Trong cloud được cấp session proxy và `CODEX_PROXY_CERT`, chạy `bash sc
 
 Các màn hình trong bản khởi tạo đã được triển khai với API lưu dữ liệu. Theo lựa chọn của bạn, thanh toán và hoàn tiền dùng **sandbox**, không thu/chuyển tiền thật. Mở [hướng dẫn workflow](docs/commerce.md) để xem thao tác quản trị, flash sale, thanh toán, hoàn tiền, xóa mềm và cách nâng cấp không mất dữ liệu.
 
-Hiện mỗi đơn gồm một SKU với số lượng lựa chọn; chưa có giỏ nhiều SKU, phí giao hàng hoặc hoàn tiền một phần. Session ở RAM một API instance; chưa có MFA/reset mật khẩu/rate limit. API và worker chạy chung ứng dụng; Kafka outbox at-least-once, chưa có consumer nghiệp vụ/DLQ. Redis đã cấu hình, chưa cache tồn kho. Chưa đánh giá tải production.
+Hiện mỗi đơn gồm một SKU với số lượng lựa chọn; chưa có giỏ nhiều SKU, phí giao hàng hoặc hoàn tiền một phần. Session ở RAM một API instance; chưa có MFA/reset mật khẩu/rate limit. API và worker chạy chung ứng dụng; Kafka outbox at-least-once, chưa có consumer nghiệp vụ/DLQ. Redis cache metadata sản phẩm/chiến dịch và fallback MySQL khi lỗi; tồn kho/quota vẫn đọc DB. Chưa đánh giá tải production.
 
 ## SQL và dữ liệu lớn
 
@@ -72,3 +72,7 @@ Các kiểm tra tạo dữ liệu thử riêng và không xóa lịch sử. Xem 
 ## Cấu trúc backend
 
 Backend đã tách thành **Controller → Service interface → ServiceImpl → Repository**. SQL chỉ nằm trong `repository/`; nghiệp vụ/transaction nằm trong `service/impl/`; DTO request nằm trong `dto/`. Scheduler, bootstrap và xử lý session cũng được tách riêng. Xem [hướng dẫn kiến trúc backend](docs/backend-architecture.md) và kiểm tra `LayerArchitectureTest` chạy khi `mvn test/package`.
+
+## Redis fallback
+
+Đã có cache-aside cho metadata sản phẩm và sale: Redis lỗi/timeout hoặc JSON hỏng thì tự đọc MySQL. Timeout mặc định 200 ms, backoff 5 giây, TTL 10 giây; xóa cache sau commit quản trị. Xem [hướng dẫn và kiểm thử Redis fallback](docs/cache-fallback.md). Trên Windows chạy `py scripts/cache-fallback-smoke.py`; thêm `--outages` chỉ trong môi trường phát triển để kiểm tra stop Redis và timeout thật. Không cần xóa database hoặc volume.

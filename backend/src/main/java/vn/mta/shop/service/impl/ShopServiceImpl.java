@@ -1,25 +1,34 @@
 package vn.mta.shop.service.impl;
 
+import java.time.*;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.mta.shop.cache.CacheRegion;
 import vn.mta.shop.dto.PlaceOrderRequest;
 import vn.mta.shop.dto.ProfileRequest;
 import vn.mta.shop.dto.RefundRequest;
 import vn.mta.shop.repository.CampaignRepository;
 import vn.mta.shop.repository.CustomerRepository;
+import vn.mta.shop.repository.InventoryRepository;
 import vn.mta.shop.repository.OrderRepository;
 import vn.mta.shop.repository.ProductRepository;
 import vn.mta.shop.repository.SystemRepository;
 import vn.mta.shop.service.AccountService;
 import vn.mta.shop.service.OrderService;
 import vn.mta.shop.service.PaymentService;
+import vn.mta.shop.service.ReadCacheService;
 import vn.mta.shop.service.ShopService;
 
 @Service
 public class ShopServiceImpl implements ShopService {
   private final CampaignRepository campaignRepository;
+  private final ReadCacheService cache;
+  private final InventoryRepository inventoryRepository;
   private final CustomerRepository customerRepository;
   private final OrderRepository orderRepository;
   private final ProductRepository productRepository;
@@ -30,6 +39,8 @@ public class ShopServiceImpl implements ShopService {
 
   public ShopServiceImpl(
       CampaignRepository campaignRepository,
+      ReadCacheService cache,
+      InventoryRepository inventoryRepository,
       CustomerRepository customerRepository,
       OrderRepository orderRepository,
       ProductRepository productRepository,
@@ -38,6 +49,8 @@ public class ShopServiceImpl implements ShopService {
       OrderService orders,
       PaymentService payments) {
     this.campaignRepository = campaignRepository;
+    this.cache = cache;
+    this.inventoryRepository = inventoryRepository;
     this.customerRepository = customerRepository;
     this.orderRepository = orderRepository;
     this.productRepository = productRepository;
@@ -54,7 +67,16 @@ public class ShopServiceImpl implements ShopService {
 
   @Override
   public List<Map<String, Object>> products() {
-    var rows = productRepository.findCatalog();
+    var rows = copy(cache.getOrLoad(CacheRegion.PRODUCTS, productRepository::findCatalogMetadata));
+    var ids = rows.stream().map(p -> ((Number) p.get("id")).longValue()).toList();
+    var available =
+        inventoryRepository.findAvailableForSkus(ids).stream()
+            .collect(
+                Collectors.toMap(
+                    p -> ((Number) p.get("sku_id")).longValue(),
+                    p -> ((Number) p.get("available")).intValue()));
+    rows.removeIf(p -> !available.containsKey(((Number) p.get("id")).longValue()));
+    for (var p : rows) p.put("available", available.get(((Number) p.get("id")).longValue()));
     for (var p : rows) {
       var active = campaignRepository.findCurrentPriceForSku(((Number) p.get("id")).longValue());
       if (!active.isEmpty()) {
@@ -75,7 +97,13 @@ public class ShopServiceImpl implements ShopService {
 
   @Override
   public List<Map<String, Object>> campaigns() {
-    var rows = campaignRepository.findPublicUpcoming();
+    var rows = copy(cache.getOrLoad(CacheRegion.CAMPAIGNS, campaignRepository::findPublicMetadata));
+    Instant now = Instant.now();
+    rows.removeIf(
+        c ->
+            !instant(c.get("ends_at")).isAfter(now)
+                || !java.util.Set.of("SCHEDULED", "ACTIVE").contains(c.get("status")));
+    for (var c : rows) c.put("server_time", now.toString());
     for (var c : rows)
       c.put("items", campaignRepository.findPublicItems(((Number) c.get("id")).longValue()));
     return rows;
@@ -124,5 +152,18 @@ public class ShopServiceImpl implements ShopService {
     customerRepository.updateProfile(
         input.name().strip(), input.phone(), accounts.customerId(email));
     return Map.of("message", "Đã cập nhật hồ sơ");
+  }
+
+  // Không bổ sung giá sale/tồn/quota lên đối tượng metadata dùng chung trong cache.
+  private List<Map<String, Object>> copy(List<Map<String, Object>> rows) {
+    var result = new ArrayList<Map<String, Object>>();
+    for (var row : rows) result.add(new LinkedHashMap<>(row));
+    return result;
+  }
+
+  private Instant instant(Object value) {
+    if (value instanceof LocalDateTime date) return date.toInstant(ZoneOffset.UTC);
+    if (value instanceof java.util.Date date) return date.toInstant();
+    return OffsetDateTime.parse(value.toString()).toInstant();
   }
 }

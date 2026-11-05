@@ -205,4 +205,11 @@ public class CampaignRepository {
             + " p.deleted_at IS NULL AND p.status='ACTIVE'",
         campaignId);
   }
+
+  public List<Map<String, Object>> findPublicMetadata() {
+    return jdbc.queryForList(
+        "SELECT id,name,starts_at,ends_at,status FROM sale_campaigns WHERE deleted_at IS NULL AND"
+            + " status IN ('SCHEDULED','ACTIVE') AND ends_at>UTC_TIMESTAMP() ORDER BY starts_at,id"
+            + " LIMIT 30");
+  }
 }

@@ -86,3 +86,17 @@ Các giới hạn giao diện/nghiệp vụ của hai phiên bản trước đã
 - Hồi quy trên Docker/MySQL thật sau refactor: check-ready, auth-smoke, smoke, commerce-smoke --database-checks với khóa HMAC thử, auth-revocation-smoke đều PASS. Bao gồm tranh quota, kiểm tra webhook HTTP, worker trả quota hết hạn, hoàn tiền/giao/nhận hàng trả và xóa mềm.
 - Chromium: commerce-ui-smoke và ui-smoke đều PASS; đăng ký/đăng nhập, CRUD, đặt sale/thanh toán/duyệt hoàn, hồ sơ/tự xóa, route guard, mobile và không có pageerror.
 - Không có bước test được báo PASS khi chưa chạy; LayerArchitectureTest thực thi thật trong mvn package, không phải build zero-test như phiên khởi tạo trước.
+
+## Redis cache fallback — 06/11/2026
+
+- Thêm ReadCacheService/ReadCacheServiceImpl, RedisCacheRepository, cấu hình timeout/queue Lettuce và listener xóa cache AFTER_COMMIT. Giữ cấu trúc phân tầng.
+- Cache metadata public của sản phẩm/chiến dịch; tồn kho, giá sale/quota, thời gian server và các quyết định tài khoản/đơn/thanh toán vẫn dùng MySQL. Bản sao metadata được dùng khi bổ sung dữ liệu động.
+- Maven/Java 17 Docker build: 17 JUnit tests, 0 failures/errors/skipped (5 architecture, 10 ReadCacheFallbackTest, 2 ShopCacheBoundaryTest).
+- Unit test xác minh hit không gọi metadata loader DB, miss có TTL; lỗi kết nối/command timeout/SET/DEL không làm mất kết quả DB; JSON/date cache hỏng fallback; lỗi DB vẫn truyền lên; disabled không gọi Redis; chỉ một half-open probe và có phục hồi; không đóng băng stock/giá sale/quota/thời gian.
+- `cache-fallback-smoke.py --outages` thực thi trên Redis thật: hit/TTL, stock vẫn mới khi metadata hit, update admin xóa cache sau commit, JSON lỗi vẫn HTTP 200.
+- Stop Redis thật: HTTP 200, đọc được tên mới vừa lưu MySQL, đặt/hủy đơn bình thường; lần đọc đầu đo khoảng 0,027 giây trong lần chạy đạt.
+- Docker rootless không hỗ trợ pause container; dùng CLIENT PAUSE 3000 ALL để tạo command timeout thật. API trả HTTP 200 từ DB trong khoảng 0,264 giây. Dịch vụ tự khôi phục cache sau Redis recovery, không restart API. Redis được start/CLIENT UNPAUSE trong finally.
+- Commerce API smoke với signed HTTP webhook/database expiry, commerce UI smoke và auth smoke chạy lại đều PASS khi cache bật.
+- Không thêm dependency Maven; chỉ sửa comment POM. Không đổi schema/migration, database, frontend hoặc hợp đồng API. Các thời gian đo trên máy phát triển không phải cam kết SLA production.
+
+Hướng dẫn cấu hình và chạy trên Windows: `cache-fallback.md`. Fallback cần MySQL còn hoạt động; metadata có cửa sổ stale theo TTL, không dùng cache thay thế quyết định tài chính/tồn kho.

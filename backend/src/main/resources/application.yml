@@ -26,8 +26,14 @@ spring:
     password: ${DB_PASSWORD:mta_dev_only}
   data:
     redis:
-      # Cổng Redis mặc định của Spring Boot là 6379; bản đầu chưa bật cache nghiệp vụ.
+      # Redis chỉ cache metadata công khai. Lỗi cache sẽ đọc MySQL.
       host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      # Giới hạn chờ để Redis chết/chậm không giữ request quá lâu.
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT:200ms}
+      timeout: ${REDIS_COMMAND_TIMEOUT:200ms}
+      lettuce:
+        shutdown-timeout: 100ms
   kafka:
     # Điểm kết nối ban đầu tới broker; client sau đó dùng địa chỉ broker quảng bá.
     bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
@@ -42,6 +48,11 @@ spring:
 
 # Chỉ bật tạo tài khoản mẫu trong môi trường phát triển; không ghi đè tài khoản đã tồn tại.
 app:
+  cache:
+    enabled: ${CATALOG_CACHE_ENABLED:true}
+    ttl: ${CATALOG_CACHE_TTL:10s}
+    # Khi cache lỗi, bỏ qua Redis trong khoảng này rồi chỉ cho một request thăm dò lại.
+    failure-backoff: ${CATALOG_CACHE_FAILURE_BACKOFF:5s}
   demo-accounts:
     enabled: ${APP_DEMO_ACCOUNTS_ENABLED:false}
     admin-password: ${APP_DEMO_ADMIN_PASSWORD:}

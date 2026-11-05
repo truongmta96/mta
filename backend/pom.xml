@@ -67,7 +67,8 @@
 
         <!--
             Cung cấp Spring Data Redis và Redis client để làm việc với Redis.
-            Bản khởi tạo đã có cấu hình kết nối; chưa triển khai cache nghiệp vụ.
+            RedisCacheRepository thực hiện GET/SET/DEL; ReadCacheServiceImpl fallback MySQL
+            khi Redis lỗi/timeout. Chỉ cache metadata công khai, không cache quyết định tồn kho/thanh toán.
         -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

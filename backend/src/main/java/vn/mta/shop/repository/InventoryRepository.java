@@ -93,4 +93,14 @@ public class InventoryRepository {
     return jdbc.update(
         "UPDATE inventory_reservations SET status='FULFILLED' WHERE id=?", reservationId);
   }
+
+  public List<Map<String, Object>> findAvailableForSkus(List<Long> ids) {
+    if (ids.isEmpty()) return List.of();
+    String placeholders = String.join(",", java.util.Collections.nCopies(ids.size(), "?"));
+    return jdbc.queryForList(
+        "SELECT sku_id,on_hand-reserved AS available FROM inventory WHERE sku_id IN ("
+            + placeholders
+            + ")",
+        ids.toArray());
+  }
 }

@@ -99,4 +99,11 @@ public class ProductRepository {
             + " inventory i ON i.sku_id=s.id WHERE p.deleted_at IS NULL AND p.status='ACTIVE' ORDER"
             + " BY p.id DESC LIMIT 100");
   }
+
+  public List<Map<String, Object>> findCatalogMetadata() {
+    return jdbc.queryForList(
+        "SELECT s.id,p.name,p.brand,p.description,s.color,s.storage_gb,s.price FROM products p JOIN"
+            + " product_skus s ON s.product_id=p.id WHERE p.deleted_at IS NULL AND"
+            + " p.status='ACTIVE' ORDER BY p.id DESC LIMIT 100");
+  }
 }

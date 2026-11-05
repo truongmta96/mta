@@ -29,9 +29,11 @@ backend/src/main/java/vn/mta/shop/
 │   ├── ManagementService.java
 │   ├── BackgroundService.java
 │   ├── BootstrapService.java
+│   ├── ReadCacheService.java
 │   └── impl/            # Implementation tương ứng, có @Service
 ├── repository/          # @Repository, JdbcTemplate, SQL và bind tham số
 ├── model/               # Kiểu nghiệp vụ dùng chung, ví dụ QuotaCounter
+├── cache/               # Vùng cache công khai và sự kiện xóa cache sau commit
 ├── security/            # SecurityFilterChain, principal, adapter session/CSRF
 ├── scheduler/           # @Scheduled chỉ gọi BackgroundService
 ├── bootstrap/           # ApplicationRunner chỉ gọi BootstrapService
@@ -137,3 +139,7 @@ mvn test
 5. Scheduler/bootstrap không chứa repository, transaction hoặc xử lý mật khẩu.
 
 Chạy hồi quy từ thư mục repo như trước: `py scripts/auth-smoke.py`, `py scripts/smoke.py`, `py scripts/commerce-smoke.py`, các kiểm tra trình duyệt và kiểm tra nâng cao trong commerce.md. Không cần migration hoặc xóa volume cho lần sắp xếp code này.
+
+## Cache đọc có fallback
+
+ReadCacheService/ReadCacheServiceImpl tách xử lý cache khỏi ShopServiceImpl; RedisCacheRepository là adapter Redis bổ sung. Khi cache lỗi chỉ gọi supplier đọc MySQL, không chuyển quyết định tồn kho/thanh toán sang Redis. Xóa cache dùng sự kiện sau commit; xem `cache-fallback.md`.

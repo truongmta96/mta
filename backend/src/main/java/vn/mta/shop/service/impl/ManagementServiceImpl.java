@@ -6,9 +6,11 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.mta.shop.cache.PublicCatalogChanged;
 import vn.mta.shop.common.EmailNormalizer;
 import vn.mta.shop.dto.AccountRequest;
 import vn.mta.shop.dto.CampaignRequest;
@@ -38,6 +40,7 @@ public class ManagementServiceImpl implements ManagementService {
   private final ProductRepository productRepository;
   private final PasswordEncoder passwords;
   private final OrderService orders;
+  private final ApplicationEventPublisher events;
 
   public ManagementServiceImpl(
       AccountRepository accountRepository,
@@ -49,7 +52,8 @@ public class ManagementServiceImpl implements ManagementService {
       OrderRepository orderRepository,
       ProductRepository productRepository,
       PasswordEncoder passwords,
-      OrderService orders) {
+      OrderService orders,
+      ApplicationEventPublisher events) {
     this.accountRepository = accountRepository;
     this.auditRepository = auditRepository;
     this.campaignRepository = campaignRepository;
@@ -60,6 +64,7 @@ public class ManagementServiceImpl implements ManagementService {
     this.productRepository = productRepository;
     this.passwords = passwords;
     this.orders = orders;
+    this.events = events;
   }
 
   @Transactional
@@ -270,5 +275,7 @@ public class ManagementServiceImpl implements ManagementService {
   @Override
   public void audit(long actor, String action, String entity, long id) {
     auditRepository.insert(actor, action, entity, id);
+    if (entity.equals("SKU") || entity.equals("CAMPAIGN"))
+      events.publishEvent(new PublicCatalogChanged());
   }
 }
