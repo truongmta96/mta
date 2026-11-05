@@ -275,6 +275,8 @@ public class ManagementServiceImpl implements ManagementService {
   @Override
   public void audit(long actor, String action, String entity, long id) {
     auditRepository.insert(actor, action, entity, id);
+    // Chỉ metadata sản phẩm/sale được cache. Phát tín hiệu trong transaction;
+    // listener AFTER_COMMIT mới xóa Redis, rollback không được kích hoạt xóa cache.
     if (entity.equals("SKU") || entity.equals("CAMPAIGN"))
       events.publishEvent(new PublicCatalogChanged());
   }

@@ -67,8 +67,11 @@ public class ShopServiceImpl implements ShopService {
 
   @Override
   public List<Map<String, Object>> products() {
+    // Chỉ tên/biến thể/giá cơ bản đi qua cache; method reference chưa đọc DB cho tới khi .get() được gọi.
+    // Nếu Redis lỗi, ReadCacheServiceImpl gọi findCatalogMetadata trực tiếp để fallback.
     var rows = copy(cache.getOrLoad(CacheRegion.PRODUCTS, productRepository::findCatalogMetadata));
     var ids = rows.stream().map(p -> ((Number) p.get("id")).longValue()).toList();
+    // Tồn kho phải mới: lấy theo lô từ MySQL cho các SKU, không dùng số lượng từ cache.
     var available =
         inventoryRepository.findAvailableForSkus(ids).stream()
             .collect(
@@ -78,6 +81,7 @@ public class ShopServiceImpl implements ShopService {
     rows.removeIf(p -> !available.containsKey(((Number) p.get("id")).longValue()));
     for (var p : rows) p.put("available", available.get(((Number) p.get("id")).longValue()));
     for (var p : rows) {
+      // Giá/quota sale hiện tại tiếp tục đọc DB, không lấy theo snapshot metadata có TTL.
       var active = campaignRepository.findCurrentPriceForSku(((Number) p.get("id")).longValue());
       if (!active.isEmpty()) {
         var a = active.get(0);
@@ -97,7 +101,9 @@ public class ShopServiceImpl implements ShopService {
 
   @Override
   public List<Map<String, Object>> campaigns() {
+    // Chỉ cache header chiến dịch. Item/quota/tồn bên dưới vẫn đọc DB mỗi lần trả response.
     var rows = copy(cache.getOrLoad(CacheRegion.CAMPAIGNS, campaignRepository::findPublicMetadata));
+    // Không dùng giờ server cũ nằm trong cache; lọc lại chiến dịch hết hạn theo giờ hiện tại.
     Instant now = Instant.now();
     rows.removeIf(
         c ->
@@ -155,6 +161,7 @@ public class ShopServiceImpl implements ShopService {
   }
 
   // Không bổ sung giá sale/tồn/quota lên đối tượng metadata dùng chung trong cache.
+  // Sao chép Map trước khi ghép dữ liệu động, tránh làm metadata bị nhiễm dữ liệu của request trước.
   private List<Map<String, Object>> copy(List<Map<String, Object>> rows) {
     var result = new ArrayList<Map<String, Object>>();
     for (var row : rows) result.add(new LinkedHashMap<>(row));

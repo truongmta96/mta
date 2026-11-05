@@ -31,6 +31,7 @@ spring:
       port: ${REDIS_PORT:6379}
       # Giới hạn chờ để Redis chết/chậm không giữ request quá lâu.
       connect-timeout: ${REDIS_CONNECT_TIMEOUT:200ms}
+      # TCP đã kết nối nhưng GET/SET/DEL không trả lời thì command timeout sẽ kích hoạt fallback.
       timeout: ${REDIS_COMMAND_TIMEOUT:200ms}
       lettuce:
         shutdown-timeout: 100ms
@@ -49,7 +50,9 @@ spring:
 # Chỉ bật tạo tài khoản mẫu trong môi trường phát triển; không ghi đè tài khoản đã tồn tại.
 app:
   cache:
+    # false: chỉ đọc DB, bỏ qua các lệnh cache ở ReadCacheServiceImpl.
     enabled: ${CATALOG_CACHE_ENABLED:true}
+    # Metadata hết hạn sau khoảng này. TTL khác timeout lệnh và khác backoff sau lỗi.
     ttl: ${CATALOG_CACHE_TTL:10s}
     # Khi cache lỗi, bỏ qua Redis trong khoảng này rồi chỉ cho một request thăm dò lại.
     failure-backoff: ${CATALOG_CACHE_FAILURE_BACKOFF:5s}

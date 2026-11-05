@@ -45,6 +45,7 @@ class ReadCacheFallbackTest {
     return json.writeValueAsString(new ReadCacheServiceImpl.Payload(1, rows()));
   }
 
+  // Cache hit phải bỏ qua loader metadata DB; số thập phân vẫn chính xác.
   @Test
   void hitDoesNotReadDatabaseAndPreservesMoney() throws Exception {
     when(redis.get(CacheRegion.PRODUCTS.key())).thenReturn(payload());
@@ -59,6 +60,7 @@ class ReadCacheFallbackTest {
     verify(redis, never()).put(anyString(), anyString(), any());
   }
 
+  // Cache miss chỉ đọc DB một lần rồi SET kèm TTL, không tạo key vô thời hạn.
   @Test
   void missReadsDatabaseAndWritesWithTtl() {
     var expected = rows();
@@ -76,6 +78,7 @@ class ReadCacheFallbackTest {
     verify(redis).put(eq(CacheRegion.PRODUCTS.key()), anyString(), eq(Duration.ofSeconds(10)));
   }
 
+  // Sau lỗi kết nối, các request tiếp theo đọc DB trong backoff mà không gọi Redis thêm.
   @Test
   void connectionFailureFallsBackAndCooldownSkipsSubsequentRedisCalls() {
     when(redis.get(anyString())).thenThrow(new RedisConnectionFailureException("offline"));
@@ -95,6 +98,7 @@ class ReadCacheFallbackTest {
     verify(redis, never()).put(anyString(), anyString(), any());
   }
 
+  // GET timeout phải fallback ngay; không thử SET để rồi chờ timeout lần hai.
   @Test
   void commandTimeoutFallsBackWithoutSecondWriteTimeout() {
     when(redis.get(anyString())).thenThrow(new QueryTimeoutException("timeout"));
@@ -103,6 +107,7 @@ class ReadCacheFallbackTest {
     verify(redis, never()).put(anyString(), anyString(), any());
   }
 
+  // DB đã đọc được thì SET lỗi cũng phải trả dữ liệu DB bình thường.
   @Test
   void cacheWriteFailureDoesNotFailSuccessfulDatabaseRead() {
     doThrow(new RedisConnectionFailureException("offline"))
@@ -112,6 +117,7 @@ class ReadCacheFallbackTest {
         rows(), cache(true, Duration.ofSeconds(5)).getOrLoad(CacheRegion.PRODUCTS, this::rows));
   }
 
+  // JSON/date hỏng phải được coi là cache không dùng được, không gây lỗi ở màn hình.
   @Test
   void corruptJsonAndInvalidDatesFallBack() {
     when(redis.get(CacheRegion.PRODUCTS.key())).thenReturn("not-json");
@@ -124,6 +130,7 @@ class ReadCacheFallbackTest {
         List.of(), cache(true, Duration.ofSeconds(5)).getOrLoad(CacheRegion.CAMPAIGNS, List::of));
   }
 
+  // Lỗi DB thật phải truyền lên; fallback không đồng nghĩa che mọi lỗi hoặc ghi kết quả giả vào cache.
   @Test
   void databaseFailureIsNotSwallowedOrWrittenToCache() {
     when(redis.get(anyString())).thenThrow(new RedisConnectionFailureException("offline"));
@@ -142,6 +149,7 @@ class ReadCacheFallbackTest {
     verify(redis, never()).put(anyString(), anyString(), any());
   }
 
+  // Tắt cache thì service chỉ dùng DB, không chạm đến Redis.
   @Test
   void disabledCacheNeverTouchesRedis() {
     assertEquals(
@@ -149,12 +157,14 @@ class ReadCacheFallbackTest {
     verifyNoInteractions(redis);
   }
 
+  // DEL lỗi sau DB commit không được báo thao tác lưu thất bại.
   @Test
   void invalidationFailureDoesNotEscapeAfterCommit() {
     doThrow(new RedisConnectionFailureException("offline")).when(redis).delete(anyCollection());
     assertDoesNotThrow(() -> cache(true, Duration.ofSeconds(5)).invalidatePublicMetadata());
   }
 
+  // Dùng latch mô phỏng nhiều request: chỉ một probe, sau phục hồi phải đọc cache trở lại.
   @Test
   void onlyOneHalfOpenProbeAndSuccessfulProbeRecovers() throws Exception {
     var service = cache(true, Duration.ofMillis(20));

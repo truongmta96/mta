@@ -37,6 +37,7 @@ def await_cache(expected_name,timeout=25):
     raise AssertionError('Redis cache did not recover/populate with current metadata')
 
 try:
+    # Bước 1: làm ấm cache; có key hợp lệ mới kiểm tra hit/TTL để tránh kết quả giả do chưa bật cache.
     await_cache(original['name'])
     payload=json.loads(redis('GET',KEY));assert payload['schema']==1
     assert all('available' not in p and 'reserved' not in p and 'on_hand' not in p for p in payload['rows'])
@@ -55,6 +56,7 @@ try:
     assert product()['name']==renamed['name']
     await_cache(renamed['name'])
     # JSON cache hỏng vẫn trả dữ liệu MySQL, không phải 500.
+    # Bước 2: cố ý làm hỏng đúng key public, kiểm tra service quay về DB; không FLUSHALL.
     redis('SET',KEY,'not-json','EX','10')
     assert product()['name']==renamed['name']
     redis('DEL',*KEYS)
@@ -65,6 +67,7 @@ try:
     else:
         stopped=False
         try:
+            # Bước 3: mất Redis thật; API vẫn phải đọc DB và đặt/hủy đơn được.
             docker('stop','redis');stopped=True
             start=time.monotonic();assert product()['name']==renamed['name'];elapsed=time.monotonic()-start
             assert elapsed<3,('Redis outage response too slow',elapsed)
@@ -82,6 +85,8 @@ try:
         paused=False
         try:
             # TCP vẫn mở nhưng Redis không xử lý lệnh: buộc command timeout thật.
+            # Bước 4: kết nối còn mở nhưng Redis tạm không xử lý lệnh -> command timeout thật.
+            # 3000 ms tự hết hạn; finally vẫn UNPAUSE sớm để khôi phục môi trường.
             redis('CLIENT','PAUSE','3000','ALL');paused=True
             start=time.monotonic();assert product()['name']==during['name'];elapsed=time.monotonic()-start
             assert elapsed<3,('Redis timeout response too slow',elapsed)
@@ -90,6 +95,7 @@ try:
         finally:
             if paused:redis('CLIENT','UNPAUSE')
         await_cache(during['name'])
+        # Không restart API: cache phải tự hoạt động lại khi hết backoff và probe thành công.
         print('PASS: Redis recovery re-enables cache without API restart')
 finally:
     # Chỉ ẩn sản phẩm thử đã tạo ở trên; không xóa sản phẩm người dùng hoặc lịch sử đơn.

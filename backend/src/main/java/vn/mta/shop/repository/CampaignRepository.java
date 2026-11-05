@@ -206,6 +206,7 @@ public class CampaignRepository {
         campaignId);
   }
 
+  // Chỉ header chiến dịch được cache; item/quota/tồn được service đọc DB riêng trên mỗi request.
   public List<Map<String, Object>> findPublicMetadata() {
     return jdbc.queryForList(
         "SELECT id,name,starts_at,ends_at,status FROM sale_campaigns WHERE deleted_at IS NULL AND"

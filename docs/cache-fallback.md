@@ -94,3 +94,15 @@ Script dùng Docker CLI, tạo sản phẩm thử riêng, kiểm tra hit/TTL, t�
 Script chỉ thao tác hai key public và sản phẩm thử của nó; không xóa volume hoặc FLUSHALL. Giữ mặc định TTL/backoff khi chạy script để phù hợp thời gian chờ kiểm thử. API cần tài khoản demo; nếu đổi mật khẩu thì dùng MTA_ADMIN_PASSWORD/MTA_USER_PASSWORD cho script.
 
 `mvn test/package` chạy các unit test về hit/miss, lỗi kết nối, command timeout, lỗi ghi/xóa cache, dữ liệu hỏng, không che lỗi MySQL, cache disabled, một half-open probe và phục hồi. ShopCacheBoundaryTest bảo đảm metadata dùng chung không bị sửa và không đóng băng tồn kho/giá sale/quota/thời gian.
+
+## Đọc comment trong source theo thứ tự nào?
+
+1. `CacheRegion.java`: xác định hai vùng metadata công khai và giới hạn payload.
+2. `ReadCacheService.java`: hợp đồng `getOrLoad`; Supplier là hàm đọc DB chưa chạy.
+3. `ReadCacheServiceImpl.java`: theo comment Bước 1–5 để hiểu CLOSED/OPEN/HALF-OPEN, hit/miss/fallback và SET sau khi đọc DB. Các cờ `retryAt`, `probe`, `dirty` được giải thích tại chỗ.
+4. `RedisClientConfig.java` và `application.yml`: phân biệt connect timeout, command timeout, TTL và backoff; chúng không có cùng ý nghĩa.
+5. `ShopServiceImpl.java`: metadata đi qua cache, nhưng stock/quota/giá sale vẫn lấy DB; Map được sao chép trước khi thêm dữ liệu động.
+6. `ManagementServiceImpl.audit()` → `PublicCatalogChanged` → `CacheInvalidationListener`: vì sao chỉ xóa cache sau commit và không làm lỗi thao tác lưu khi Redis hỏng.
+7. Hai lớp test cache và `scripts/cache-fallback-smoke.py`: mỗi tình huống kiểm thử có comment nêu điều cần bảo đảm.
+
+Lưu ý `Payload.schema` là phiên bản định dạng JSON cache, không phải optimistic-lock version hay session_version của tài khoản.

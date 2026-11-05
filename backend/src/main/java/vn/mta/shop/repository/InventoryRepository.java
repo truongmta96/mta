@@ -94,8 +94,10 @@ public class InventoryRepository {
         "UPDATE inventory_reservations SET status='FULFILLED' WHERE id=?", reservationId);
   }
 
+  // Metadata có thể lấy từ cache, nhưng tồn khả dụng luôn đọc DB theo lô SKU để không bị đóng băng.
   public List<Map<String, Object>> findAvailableForSkus(List<Long> ids) {
     if (ids.isEmpty()) return List.of();
+    // Chỉ tạo số lượng dấu ?; ID vẫn bind qua tham số, không nối giá trị ID vào câu SQL.
     String placeholders = String.join(",", java.util.Collections.nCopies(ids.size(), "?"));
     return jdbc.queryForList(
         "SELECT sku_id,on_hand-reserved AS available FROM inventory WHERE sku_id IN ("

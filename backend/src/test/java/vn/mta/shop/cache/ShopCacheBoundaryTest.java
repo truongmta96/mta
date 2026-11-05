@@ -29,6 +29,7 @@ class ShopCacheBoundaryTest {
           mock(OrderService.class),
           mock(PaymentService.class));
 
+  // Hai lần đọc chung metadata nhưng stock/giá sale thay đổi: API phải trả số mới từ DB.
   @Test
   void cachedMetadataNeverFreezesStockOrSalePriceAndIsNotMutated() {
     var metadata =
@@ -56,6 +57,7 @@ class ShopCacheBoundaryTest {
     assertFalse(metadata.containsKey("campaign_id"));
   }
 
+  // Cache lịch sale không được giữ giờ cũ, quota cũ hoặc làm chiến dịch hết hạn tiếp tục xuất hiện.
   @Test
   void campaignCacheDoesNotFreezeServerTimeQuotaOrExpiredSchedules() {
     var active =

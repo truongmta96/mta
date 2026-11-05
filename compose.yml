@@ -74,9 +74,12 @@ services:
       DB_USER: mta
       DB_PASSWORD: mta_dev_only
       REDIS_HOST: redis
+      # Các biến này được chuyển vào API, không phải cấu hình bên trong container Redis.
+      # Cache tắt/lỗi không ảnh hưởng quy tắc DB của đặt hàng và thanh toán.
       CATALOG_CACHE_ENABLED: ${CATALOG_CACHE_ENABLED:-true}
       CATALOG_CACHE_TTL: ${CATALOG_CACHE_TTL:-10s}
       CATALOG_CACHE_FAILURE_BACKOFF: ${CATALOG_CACHE_FAILURE_BACKOFF:-5s}
+      # Giới hạn chờ mỗi lệnh/kết nối; không phải giới hạn tổng thời gian HTTP (còn đọc DB).
       REDIS_COMMAND_TIMEOUT: ${REDIS_COMMAND_TIMEOUT:-200ms}
       REDIS_CONNECT_TIMEOUT: ${REDIS_CONNECT_TIMEOUT:-200ms}
       KAFKA_BOOTSTRAP: kafka:29092

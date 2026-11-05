@@ -100,6 +100,7 @@ public class ProductRepository {
             + " BY p.id DESC LIMIT 100");
   }
 
+  // Loader cho cache sản phẩm: cố ý không SELECT tồn kho, quota hoặc giá sale hiện tại.
   public List<Map<String, Object>> findCatalogMetadata() {
     return jdbc.queryForList(
         "SELECT s.id,p.name,p.brand,p.description,s.color,s.storage_gb,s.price FROM products p JOIN"
