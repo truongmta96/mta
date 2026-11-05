@@ -76,7 +76,8 @@
 
         <!--
             Tích hợp Kafka, gồm KafkaTemplate để gửi và @KafkaListener để nhận sự kiện.
-            BackgroundJobs hiện dùng KafkaTemplate phát sự kiện từ bảng outbox_events.
+            BackgroundServiceImpl dùng KafkaTemplate phát sự kiện từ bảng outbox_events.
+            BackgroundJobs chỉ khai báo lịch chạy và gọi service interface.
             Dependency này không khởi động Kafka broker; broker chạy bằng Docker Compose.
         -->
         <dependency>

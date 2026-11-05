@@ -74,3 +74,15 @@ Các giới hạn giao diện/nghiệp vụ của hai phiên bản trước đã
 - SQL schema và bản nâng cấp thủ công chứa đủ các migration hiện tại; XML hợp lệ, diff không có lỗi whitespace.
 
 Ảnh: `ui-payment.png`, `ui-refunds.png`, `ui-sales-mobile.png`. Toàn bộ giao dịch mô phỏng; không thu/chuyển tiền thật và không coi kiểm thử này là đánh giá tải production.
+
+## Tách tầng backend — 05/11/2026
+
+- Sắp xếp thành controller, dto, service (interface), service/impl, repository, security, scheduler, bootstrap, config, common và exception.
+- Có 9 service interface/implementation tương ứng; 12 repository JDBC với phương thức và tham số cụ thể. 136 chỗ gọi SQL được chuyển về repository; đối chiếu các câu SQL trước/sau không có câu bị mất hoặc thay đổi.
+- Controller không còn SQL, JdbcTemplate, dependency ServiceImpl/repository hoặc transaction nghiệp vụ. DTO request tách thành file riêng.
+- Transaction chi tiết quản trị chuyển từ controller xuống OrderServiceImpl; luồng sandbox complete có transaction ngoài để không mất transaction do self-invocation. Các thao tác vòng đời đơn yêu cầu transaction hiện có.
+- Java 17 Docker build thành công; JUnit LayerArchitectureTest thực thi 5 kiểm tra, 0 failures/errors/skipped. Không thêm dependency test ngoài bộ JUnit sẵn có.
+- Không đổi frontend, URL API, cấu trúc schema/migration hoặc cấu hình Compose. Source Java được định dạng lại và dùng import rõ tên lớp.
+- Hồi quy trên Docker/MySQL thật sau refactor: check-ready, auth-smoke, smoke, commerce-smoke --database-checks với khóa HMAC thử, auth-revocation-smoke đều PASS. Bao gồm tranh quota, kiểm tra webhook HTTP, worker trả quota hết hạn, hoàn tiền/giao/nhận hàng trả và xóa mềm.
+- Chromium: commerce-ui-smoke và ui-smoke đều PASS; đăng ký/đăng nhập, CRUD, đặt sale/thanh toán/duyệt hoàn, hồ sơ/tự xóa, route guard, mobile và không có pageerror.
+- Không có bước test được báo PASS khi chưa chạy; LayerArchitectureTest thực thi thật trong mvn package, không phải build zero-test như phiên khởi tạo trước.

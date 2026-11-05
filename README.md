@@ -68,3 +68,7 @@ py scripts/commerce-ui-smoke.py
 ```
 
 Các kiểm tra tạo dữ liệu thử riêng và không xóa lịch sử. Xem [docs/commerce.md](docs/commerce.md) để kiểm tra thêm webhook HTTP có chữ ký và mô phỏng hết hạn với Docker. Không cần xóa volume khi cập nhật; Flyway tự áp dụng migration bổ sung.
+
+## Cấu trúc backend
+
+Backend đã tách thành **Controller → Service interface → ServiceImpl → Repository**. SQL chỉ nằm trong `repository/`; nghiệp vụ/transaction nằm trong `service/impl/`; DTO request nằm trong `dto/`. Scheduler, bootstrap và xử lý session cũng được tách riêng. Xem [hướng dẫn kiến trúc backend](docs/backend-architecture.md) và kiểm tra `LayerArchitectureTest` chạy khi `mvn test/package`.

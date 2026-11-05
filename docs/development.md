@@ -15,3 +15,7 @@ Có thể dùng `bash scripts/build-cloud.sh` để tự truyền cấu hình se
 ## Đăng nhập khi phát triển
 
 Xem `docs/authentication.md` để biết tài khoản mẫu và ma trận quyền. Compose bật tài khoản mẫu khi chưa tồn tại. Backend chạy ngoài Compose mặc định không tạo tài khoản mẫu; cần bật APP_DEMO_ACCOUNTS_ENABLED và cấu hình hai biến mật khẩu nếu muốn dùng demo. Script smoke hiện đăng nhập và gửi CSRF trước khi đặt hàng.
+
+## Backend sau refactor
+
+Xem `docs/backend-architecture.md`: controller chỉ gọi service interface; xử lý ở service/impl; SQL và JDBC ở repository. `mvn test` trong backend chạy LayerArchitectureTest mà không cần database. Kiểm thử nghiệp vụ đầy đủ vẫn cần Compose và các script HTTP/browser như trước. Không cần reset database hoặc chạy migration mới cho thay đổi phân tầng này.
