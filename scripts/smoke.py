@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 """Functional check against a dedicated local demo instance; creates test orders."""
-import json, urllib.request, urllib.error, uuid, concurrent.futures
-BASE='http://127.0.0.1:8080/api'
+import uuid, concurrent.futures
+import os
+from auth_client import Client
+client=Client()
+status, identity=client.login('user@mta.local',os.environ.get('MTA_USER_PASSWORD','User@12345'),'CUSTOMER')
+assert status==200,identity
 def request(path,body=None,key=None):
- data=json.dumps(body).encode() if body is not None else None
- headers={'Content-Type':'application/json'}
- if key:headers['Idempotency-Key']=key
- try:
-  with urllib.request.urlopen(urllib.request.Request(BASE+path,data=data,headers=headers),timeout=30) as r:return r.status,json.load(r)
- except urllib.error.HTTPError as e:return e.code,e.read().decode()
+ return client.request(path,body,headers={'Idempotency-Key':key} if key else {})
 assert request('/health')[0]==200
 products=request('/products')[1];assert len(products)==6
 sku=products[-1];before=sku['available']

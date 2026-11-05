@@ -2,6 +2,15 @@
 server:
   # Cổng API trong tiến trình/container; Compose ánh xạ cổng này ra máy host.
   port: 8080
+  servlet:
+    session:
+      # Cookie phiên không đọc được bằng JavaScript; local HTTP dùng secure=false.
+      # Khi triển khai HTTPS phải đặt SESSION_COOKIE_SECURE=true.
+      timeout: 30m
+      cookie:
+        http-only: true
+        same-site: lax
+        secure: ${SESSION_COOKIE_SECURE:false}
   error:
     # Trả thông báo lỗi cho client trong bản demo; cần xem lại mức chi tiết khi triển khai thật.
     include-message: always
@@ -30,3 +39,10 @@ spring:
     # Múi giờ mặc định khi Jackson xử lý kiểu ngày giờ có áp dụng timezone.
     # LocalDateTime không mang múi giờ; thiết lập này không tự đổi timezone của MySQL hay JVM.
     time-zone: UTC
+
+# Chỉ bật tạo tài khoản mẫu trong môi trường phát triển; không ghi đè tài khoản đã tồn tại.
+app:
+  demo-accounts:
+    enabled: ${APP_DEMO_ACCOUNTS_ENABLED:false}
+    admin-password: ${APP_DEMO_ADMIN_PASSWORD:}
+    user-password: ${APP_DEMO_USER_PASSWORD:}

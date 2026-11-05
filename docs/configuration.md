@@ -43,3 +43,7 @@ Khi chủ động thay dependency, dùng npm để cập nhật và commit cả 
 - `compose.yml` khởi động các image cùng network, cổng và volume; không thay thế cấu hình nghiệp vụ Java.
 - `vite.config.js` proxy API khi phát triển. `nginx.conf` phục vụ bundle và proxy API khi chạy image production.
 - `.gitignore` giới hạn file chưa được theo dõi được thêm vào Git; không tác động đến file đã được Git theo dõi và không thay thế `.dockerignore`.
+
+## Cấu hình đăng nhập bổ sung
+
+`spring-boot-starter-security` trong pom.xml bật thư viện xác thực/phân quyền. Quy tắc URL và role nằm trong `SecurityConfig.java`; không phải mọi thư viện Security mặc định đều được bật. `application.yml` cấu hình timeout/cookie của session và cờ seeder tài khoản mẫu. Compose chuyển tiếp `APP_DEMO_ACCOUNTS_ENABLED`, hai biến mật khẩu demo và `SESSION_COOKIE_SECURE`; xem [đăng nhập và phân quyền](authentication.md). Seeder chỉ tạo mới tài khoản chưa có, không reset dữ liệu cũ.

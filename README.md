@@ -10,7 +10,7 @@ docker compose up -d --build
 python3 scripts/smoke.py
 ```
 
-Yêu cầu Docker Compose v2, khoảng 10 GB đĩa trống cho images và dữ liệu benchmark. Mật khẩu trong Compose chỉ dùng phát triển; đổi và cấu hình secret trước khi triển khai thực tế. Không public API demo: mọi yêu cầu hiện dùng customer ID 1, chưa có authentication.
+Yêu cầu Docker Compose v2, khoảng 10 GB đĩa trống cho images và dữ liệu benchmark. Mật khẩu trong Compose chỉ dùng phát triển; đổi và cấu hình secret trước khi triển khai thực tế. Compose bật tài khoản phát triển ADMIN/CUSTOMER; xem [đăng nhập và phân quyền](docs/authentication.md). Không dùng mật khẩu mẫu khi triển khai công khai.
 
 Trong cloud được cấp session proxy và `CODEX_PROXY_CERT`, chạy `bash scripts/build-cloud.sh` rồi `docker compose up -d`. Script truyền CA và Maven proxy settings qua BuildKit secrets, giữ xác minh TLS. Ngoài cloud có thể dùng lệnh build thông thường. Xem `docs/development.md`.
 
@@ -20,11 +20,11 @@ Trong cloud được cấp session proxy và `CODEX_PROXY_CERT`, chạy `bash sc
 - Giá lấy từ database; đặt hàng có validation, idempotency theo khách, cập nhật tồn kho có điều kiện, transaction tạo đơn/reservation/outbox.
 - Worker tự hết hạn đơn sau 15 phút và trả kho; publisher gửi outbox sang Kafka theo at-least-once.
 - Flyway migration: 17 bảng, khóa ngoại, check constraints, index và partition tháng cho audit.
-- Catalog 6 điện thoại mẫu; tài khoản demo không có mật khẩu đăng nhập hợp lệ.
+- Catalog 6 điện thoại mẫu; tài khoản ADMIN/CUSTOMER phát triển được tạo với mật khẩu băm BCrypt khi bật cấu hình demo.
 
 ## Giới hạn bản khởi tạo
 
-Đăng nhập/đăng ký, phân quyền, quản trị ghi dữ liệu, xóa mềm qua API, thanh toán/webhook/hoàn tiền và đặt flash sale chưa triển khai. Schema đã chuẩn bị dữ liệu tương ứng. API thanh toán trả 501; đặt SKU trong chiến dịch đang diễn ra trả 409 để không bán sai giá/quota. Banner sale là nội dung mẫu cố định; chưa đồng bộ chiến dịch qua API.
+Đã có đăng nhập/đăng ký khách hàng, phân quyền ADMIN/CUSTOMER ở API và giao diện. Quản trị ghi dữ liệu, xóa mềm qua API, thanh toán/webhook/hoàn tiền và đặt flash sale chưa triển khai. Schema đã chuẩn bị dữ liệu tương ứng. API thanh toán trả 501; đặt SKU trong chiến dịch đang diễn ra trả 409 để không bán sai giá/quota. Banner sale là nội dung mẫu cố định; chưa đồng bộ chiến dịch qua API.
 
 Hiện API và worker chạy chung ứng dụng. Chưa có Kafka consumer nghiệp vụ, dead-letter queue hay bảo đảm thứ tự khi chạy nhiều publisher. Consumer tương lai phải chống trùng theo event ID. Redis đã cấu hình và kiểm tra kết nối, chưa dùng cache tồn kho để tránh hiển thị sai trong bản đầu. Chưa kiểm thử tải production.
 
@@ -51,3 +51,7 @@ MySQL không hỗ trợ FK trên bảng InnoDB partition. Vì vậy các bảng 
 ## Đọc cấu hình
 
 Các file cấu hình có comment tiếng Việt. Xem [giải thích cấu hình](docs/configuration.md) để hiểu cách các file phối hợp và ý nghĩa các trường JSON không thể chèn comment trực tiếp.
+
+## Đăng nhập
+
+Sau khi build lại, tài khoản phát triển mặc định: **admin@mta.local / Admin@12345** và **user@mta.local / User@12345**. Bấm Đăng nhập hoặc Quản trị trên giao diện. Xem [ma trận quyền, cấu hình và API](docs/authentication.md). User chỉ được xem/đặt đơn của mình; admin xem các màn hình quản lý. Chạy `py scripts/auth-smoke.py` trên Windows để kiểm tra phân quyền.

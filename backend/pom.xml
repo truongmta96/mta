@@ -39,6 +39,11 @@
         vẫn cần cấu hình trong application.yml hoặc biến môi trường.
     -->
     <dependencies>
+        <!-- Xác thực phiên đăng nhập, kiểm tra vai trò và chống CSRF cho các API thay đổi dữ liệu. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
         <!-- REST API, xử lý JSON bằng Jackson và web server nhúng Tomcat. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

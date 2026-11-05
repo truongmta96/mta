@@ -10,3 +10,7 @@ target/
 .data/
 # Log sinh khi ứng dụng/công cụ chạy.
 *.log
+
+# Cache Python sinh khi chạy các script kiểm thử.
+__pycache__/
+*.pyc
