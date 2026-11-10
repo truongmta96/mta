@@ -12,4 +12,4 @@ public record SaleItemRequest(
     @Min(1) long skuId,
     @NotNull @DecimalMin("0.01") @Digits(integer = 13, fraction = 2) BigDecimal price,
     @Min(1) int quota,
-    @Min(1) @Max(5) int perCustomerLimit) {}
+    @Min(1) @Max(1) int perCustomerLimit) {}

@@ -10,7 +10,7 @@ py scripts/auth-smoke.py
 py scripts/commerce-smoke.py
 ```
 
-Giữ cổng MySQL đã đổi sang 3307 nếu máy bạn bị trùng cổng 3306. Không cần `bash scripts/build-cloud.sh` trên Windows. **Không dùng `docker compose down -v` hoặc xóa database để cập nhật.** Flyway chạy thêm V3/V4/V5/V6 trên schema hiện có; V1/V2 giữ nguyên. Phiên cũ sẽ cần đăng nhập lại sau khi nâng cấp.
+Giữ cổng MySQL đã đổi sang 3307 nếu máy bạn bị trùng cổng 3306. Không cần `bash scripts/build-cloud.sh` trên Windows. **Không dùng `docker compose down -v` hoặc xóa database để cập nhật.** Flyway chạy thêm V3/V4/V5/V6/V7 trên schema hiện có; V1/V2 giữ nguyên. Phiên cũ sẽ cần đăng nhập lại sau khi nâng cấp.
 
 Tài khoản phát triển: admin@mta.local / Admin@12345; user@mta.local / User@12345. Seeder chỉ tạo email chưa có, không reset mật khẩu. Có thể tự đăng ký user mới qua giao diện.
 
@@ -22,7 +22,7 @@ Tài khoản phát triển: admin@mta.local / Admin@12345; user@mta.local / User
 | Đơn hàng | Xem dòng hàng/địa chỉ/giao dịch, hủy đơn chưa trả tiền; PAID → PROCESSING → SHIPPED → COMPLETED; tạo yêu cầu hoàn. |
 | Tài khoản | Tạo admin/user, sửa email/tên/vai trò/trạng thái, đặt mật khẩu mới, khóa, xóa mềm, khôi phục. |
 | Khách hàng | Sửa tên/điện thoại, xóa mềm/khôi phục hồ sơ; thêm khách bằng tạo tài khoản CUSTOMER. |
-| Chiến dịch sale | Tạo/sửa lịch nhiều SKU, giá ưu đãi, quota, hạn mức mỗi khách; kết thúc hoặc xóa mềm. |
+| Chiến dịch sale | Tạo/sửa lịch nhiều SKU, giá ưu đãi, quota, cố định 1 sản phẩm/tài khoản/toàn chiến dịch; kết thúc hoặc xóa mềm. |
 | Hoàn tiền | Xem yêu cầu, duyệt/từ chối, xác nhận đã nhận hàng trả nếu đơn đã gửi. |
 | Nhật ký | Xem thao tác quản lý gần đây; lọc theo tiền tố action trong 30 ngày. |
 
@@ -44,13 +44,17 @@ Hiện mỗi đơn chứa một SKU với số lượng lựa chọn. Đây là 
 
 ## Tồn kho và flash sale
 
-Tạo đơn trong cùng transaction: khóa khách → giữ inventory bằng UPDATE có điều kiện → giữ quota chiến dịch → giữ hạn mức mỗi khách → tạo đơn/reservation/outbox. Nếu bất kỳ bước nào thất bại, rollback toàn bộ. Idempotency-Key chống tạo trùng cùng yêu cầu.
+Tạo đơn trong cùng transaction: khóa khách → giữ inventory bằng UPDATE có điều kiện → giữ lượt mua toàn chiến dịch của khách → giữ quota chiến dịch và hạn mức từng SKU → tạo đơn/reservation/outbox. Nếu bất kỳ bước nào thất bại, rollback toàn bộ. Idempotency-Key chống tạo trùng cùng yêu cầu.
 
 Một SKU không được có hai chiến dịch công khai giao nhau. DRAFT không mở bán; SCHEDULED/ACTIVE chỉ mở trong đúng khung thời gian. Client không thể đặt bằng campaignId chưa bắt đầu/đã kết thúc. Catalog tự dùng giá sale đang mở. Hết suất sale không tự chuyển sang bán giá thường trong cùng chiến dịch.
 
 Đơn chưa trả tiền giữ hàng 15 phút. Hủy/hết hạn trả inventory và quota reserved. Trả tiền thành công chuyển quota reserved sang sold và reservation HELD sang CONFIRMED, vẫn giữ tồn đến lúc xuất kho. Khi SHIPPED giảm on_hand/reserved và chuyển reservation sang FULFILLED. Hoàn tiền trước xuất kho trả phần giữ; sau xuất kho cần xác nhận nhận hàng trả rồi mới cộng lại on_hand. Theo chính sách sandbox, hoàn tiền trả cả quota và hạn mức khách nếu chiến dịch vẫn còn hiệu lực.
 
 Chiến dịch đã có đơn không được sửa cấu trúc/giá/lịch/quota; có thể kết thúc/xóa mềm rồi tạo chiến dịch mới. Điều này giữ được liên kết FK và cách tính quota cho đơn cũ. Sản phẩm đã xóa mềm không nhận đơn mới, nhưng đơn đã giữ trước đó vẫn xử lý được.
+
+Mỗi tài khoản tối đa **1 sản phẩm trên toàn bộ một chiến dịch flash sale**, kể cả đổi SKU hoặc gửi nhiều yêu cầu đồng thời. Số lượng sale phải bằng 1; mua thường vẫn 1–5. API trả HTTP 409 khi vượt giới hạn; bỏ `campaignId` không bỏ qua giới hạn nếu SKU đang được áp dụng sale. Retry cùng Idempotency-Key/nội dung trả đơn cũ.
+
+Bảng `sale_campaign_customer_quotas` có khóa chính `(campaign_id, customer_id)`, không chứa SKU. Customer liên kết duy nhất với account. UPDATE có điều kiện `reserved + sold + quantity <= 1` trong cùng transaction bảo vệ lượt mua; không phụ thuộc Redis/Kafka. Đơn đang giữ và đơn đã thanh toán đều chiếm lượt. Hủy/hết hạn/hoàn toàn bộ trả lượt; chiến dịch khác có lượt riêng. Migration V7 tổng hợp lượng giữ/đã mua cũ từ các SKU, giữ nguyên cả lịch sử vượt 1 và chặn mua thêm; không tự hủy đơn lịch sử.
 
 ## Thanh toán sandbox và webhook
 
@@ -71,9 +75,10 @@ Khi tắt sandbox, tạo giao dịch/hoàn tiền bị chặn 503; hệ thống 
 
 ## SQL và kiểm thử
 
-- Flyway: V3 thêm refund/campaign liên kết đơn/session_version; V4 index tìm kiếm quản trị; V5 tên hiển thị admin; V6 index bảo vệ admin hoạt động.
+- Flyway: V3 thêm refund/campaign liên kết đơn/session_version; V4 index tìm kiếm quản trị; V5 tên hiển thị admin; V6 index bảo vệ admin hoạt động; V7 counter tổng khách/chiến dịch và cố định hạn mức 1.
 - `database/schema.sql`: toàn bộ schema mới cho database trống, không chạy trước Flyway trên cùng database.
-- `database/upgrade_from_v2.sql`: nâng schema cài SQL thủ công từ V2; không chạy nếu Flyway đã quản lý hoặc database đã có V3–V6.
+- `database/upgrade_from_v2.sql`: nâng schema cài SQL thủ công từ V2; không chạy nếu Flyway đã quản lý hoặc database đã có V3–V7.
+- `py scripts/sale-account-limit-smoke.py --database-checks`: 8 request cùng tài khoản tranh 2 SKU, đúng 1 thành công; chặn quantity > 1, retry idempotency, trả lượt khi hủy/hết hạn/hoàn tiền; callback muộn không giải phóng đơn mới. Cần Docker CLI cho mô phỏng hết hạn.
 - `py scripts/commerce-smoke.py`: tạo các tài khoản, SKU và sale thử riêng; kiểm tra tranh quota, vòng đời đơn/thanh toán/hoàn tiền và xóa mềm; ẩn SKU/sale thử sau khi chạy thành công, giữ lịch sử để đối soát.
 - `py scripts/commerce-smoke.py --database-checks`: thêm mô phỏng hết hạn trên đúng đơn thử, cần Docker CLI.
 - Đặt MTA_TEST_WEBHOOK_SECRET giống PAYMENT_WEBHOOK_SECRET của API để kiểm tra webhook HTTP ký từ ngoài; nếu không có, script ghi rõ các kiểm tra đó NOT RUN. Trong môi trường phát triển chỉ dùng khóa thử. `--database-checks`/kiểm tra signed HTTP cần Docker CLI để đọc reference của chính giao dịch thử.

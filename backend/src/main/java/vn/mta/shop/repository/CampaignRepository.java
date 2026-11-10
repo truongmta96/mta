@@ -213,4 +213,46 @@ public class CampaignRepository {
             + " status IN ('SCHEDULED','ACTIVE') AND ends_at>UTC_TIMESTAMP() ORDER BY starts_at,id"
             + " LIMIT 30");
   }
+
+  // Counter tổng chiến dịch: không đưa sku_id vào khóa, nên đổi SKU không thể lách giới hạn.
+  public int ensureCampaignCustomerQuota(long campaignId, long customerId) {
+    return jdbc.update(
+        "INSERT INTO sale_campaign_customer_quotas(campaign_id,customer_id) VALUES(?,?) ON"
+            + " DUPLICATE KEY UPDATE customer_id=customer_id",
+        campaignId,
+        customerId);
+  }
+
+  public int reserveCampaignCustomerQuota(int quantity, long campaignId, long customerId) {
+    return jdbc.update(
+        "UPDATE sale_campaign_customer_quotas SET reserved=reserved+? WHERE campaign_id=? AND"
+            + " customer_id=? AND reserved+sold+?<=1",
+        quantity,
+        campaignId,
+        customerId,
+        quantity);
+  }
+
+  public int confirmCampaignCustomerQuota(int quantity, long campaignId, long customerId) {
+    return jdbc.update(
+        "UPDATE sale_campaign_customer_quotas SET reserved=reserved-?,sold=sold+? WHERE"
+            + " campaign_id=? AND customer_id=?",
+        quantity,
+        quantity,
+        campaignId,
+        customerId);
+  }
+
+  public int releaseCampaignCustomerCounter(
+      QuotaCounter field, int quantity, long campaignId, long customerId) {
+    return jdbc.update(
+        "UPDATE sale_campaign_customer_quotas SET "
+            + field
+            + "="
+            + field
+            + "-? WHERE campaign_id=? AND customer_id=?",
+        quantity,
+        campaignId,
+        customerId);
+  }
 }

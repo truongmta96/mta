@@ -19,8 +19,8 @@ Trong cloud được cấp session proxy và `CODEX_PROXY_CERT`, chạy `bash sc
 - Giao diện responsive cho khách/admin; quản trị thêm/sửa/xóa mềm/khôi phục sản phẩm, tài khoản, khách hàng; xem và cập nhật vòng đời đơn.
 - Giá lấy từ database; đặt hàng có validation, idempotency theo khách, cập nhật tồn kho có điều kiện, transaction tạo đơn/reservation/outbox.
 - Worker tự hết hạn đơn sau 15 phút và trả kho; publisher gửi outbox sang Kafka theo at-least-once.
-- Flyway V1–V6: 18 bảng nghiệp vụ, khóa ngoại, check constraints, index tìm kiếm và partition tháng cho audit.
-- Flash sale nhiều SKU: lịch mở bán, giá ưu đãi, quota và hạn mức mỗi khách; kiểm soát đồng thời bằng transaction.
+- Flyway V1–V7: 19 bảng nghiệp vụ, khóa ngoại, check constraints, index tìm kiếm và partition tháng cho audit.
+- Flash sale nhiều SKU: lịch mở bán, giá ưu đãi, quota và tối đa 1 sản phẩm/tài khoản/toàn chiến dịch; kiểm soát đồng thời bằng transaction.
 - Thanh toán sandbox, webhook HMAC có chống trùng/kiểm tra số tiền/thời gian, yêu cầu và duyệt hoàn toàn bộ, trả kho/quota đúng trạng thái.
 - Hồ sơ user có sửa thông tin/xóa mềm tài khoản bằng mật khẩu; quản trị bảo vệ admin cuối cùng và thu hồi phiên khi thay đổi tài khoản.
 - Catalog 6 điện thoại mẫu; tài khoản ADMIN/CUSTOMER phát triển được tạo với mật khẩu băm BCrypt khi bật cấu hình demo.

@@ -98,15 +98,20 @@ public class OrderServiceImpl implements OrderService {
       var sale = sales.get(0);
       campaign = ((Number) sale.get("id")).longValue();
       price = (BigDecimal) sale.get("sale_price");
+      // Một lượt cho toàn bộ chiến dịch: chặn cả quantity > 1 và gửi nhiều request/đổi SKU.
+      // Chạy sau kiểm tra idempotency nên retry cùng key vẫn trả về đơn cũ.
+      if (input.quantity() != 1)
+        throw error(409, "Mỗi tài khoản chỉ được mua 1 sản phẩm trong một chiến dịch flash sale");
+      campaignRepository.ensureCampaignCustomerQuota(campaign, customer);
+      if (campaignRepository.reserveCampaignCustomerQuota(input.quantity(), campaign, customer)
+          != 1)
+        throw error(
+            409, "Bạn đã có đơn giữ hàng hoặc đã mua 1 sản phẩm trong chiến dịch flash sale này");
       if (campaignRepository.reserveItem(input.quantity(), campaign, input.skuId()) != 1)
         throw error(409, "Đã hết suất ưu đãi");
       campaignRepository.ensureCustomerQuota(campaign, input.skuId(), customer);
       if (campaignRepository.reserveCustomerQuota(
-              input.quantity(),
-              campaign,
-              input.skuId(),
-              customer,
-              ((Number) sale.get("per_customer_limit")).intValue())
+              input.quantity(), campaign, input.skuId(), customer, 1)
           != 1) throw error(409, "Bạn đã đạt giới hạn mua trong chiến dịch");
     }
     if (input.expectedPrice() != null && input.expectedPrice().compareTo(price) != 0)
@@ -212,6 +217,12 @@ public class OrderServiceImpl implements OrderService {
             ((Number) o.get("campaign_id")).longValue(),
             sku,
             ((Number) o.get("customer_id")).longValue());
+        // Chính sách như trước: hủy/hết hạn/hoàn tiền trả lại lượt để khách có thể mua lại.
+        campaignRepository.releaseCampaignCustomerCounter(
+            field,
+            q,
+            ((Number) o.get("campaign_id")).longValue(),
+            ((Number) o.get("customer_id")).longValue());
       }
       inventoryRepository.updateReservationStatus(
           state.equals("FULFILLED") ? "RETURNED" : "RELEASED", ((Number) r.get("id")).longValue());
@@ -231,6 +242,10 @@ public class OrderServiceImpl implements OrderService {
             ((Number) r.get("quantity")).intValue(),
             ((Number) o.get("campaign_id")).longValue(),
             ((Number) r.get("sku_id")).longValue(),
+            ((Number) o.get("customer_id")).longValue());
+        campaignRepository.confirmCampaignCustomerQuota(
+            ((Number) r.get("quantity")).intValue(),
+            ((Number) o.get("campaign_id")).longValue(),
             ((Number) o.get("customer_id")).longValue());
       }
       inventoryRepository.confirmReservation(((Number) r.get("id")).longValue());

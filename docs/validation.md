@@ -100,3 +100,12 @@ Các giới hạn giao diện/nghiệp vụ của hai phiên bản trước đã
 - Không thêm dependency Maven; chỉ sửa comment POM. Không đổi schema/migration, database, frontend hoặc hợp đồng API. Các thời gian đo trên máy phát triển không phải cam kết SLA production.
 
 Hướng dẫn cấu hình và chạy trên Windows: `cache-fallback.md`. Fallback cần MySQL còn hoạt động; metadata có cửa sổ stale theo TTL, không dùng cache thay thế quyết định tài chính/tồn kho.
+
+## 2026-11-10 — Một sản phẩm/tài khoản/toàn chiến dịch flash sale
+
+- Java 17/Maven build: 17 JUnit tests PASS; React/Vite build thành công.
+- Flyway V7 áp dụng trên database hiện có; không sửa V1–V6, không xóa volume. Tổng hợp counter lịch sử theo khách/chiến dịch, giữ nguyên đơn cũ.
+- `python3 scripts/sale-account-limit-smoke.py --database-checks` PASS: 8 request cùng tài khoản mua xen kẽ 2 SKU → đúng 1 HTTP 200 và 7 HTTP 409; quantity 2 và bỏ campaignId không vượt giới hạn; retry cùng key trả đơn cũ.
+- Đã thanh toán vẫn chặn mua thêm; webhook lặp không tăng counter; hoàn tiền/hủy/hết hạn trả lượt. Thanh toán muộn tự hoàn, không giải phóng lượt của đơn thay thế. Tài khoản khác/chiến dịch khác có lượt riêng; mua thường quantity 2 vẫn được.
+- `commerce-smoke.py --database-checks` PASS, có cấu hình khóa thử trùng API để chạy signed HTTP webhook: CRUD, xóa mềm/khôi phục, quota/tồn đồng thời, thanh toán/hoàn tiền/giao nhận/hết hạn.
+- `commerce-ui-smoke.py` PASS: quản trị, đăng ký, đặt sale, thanh toán sandbox, hoàn tiền, hồ sơ, xóa mềm và mobile. Không phải benchmark tải production.
