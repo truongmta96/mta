@@ -2,6 +2,8 @@ package vn.mta.shop.repository;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import org.springframework.dao.support.DataAccessUtils;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -78,11 +80,15 @@ public class CustomerRepository {
         "UPDATE customers SET full_name=?,phone=? WHERE id=?", name, phone, customerId);
   }
 
-  public List<Map<String, Object>> findActiveIdByEmail(String email) {
-    return jdbc.queryForList(
-        "SELECT c.id FROM customers c JOIN accounts a ON a.id=c.account_id WHERE a.email=? AND"
-            + " a.status='ACTIVE' AND a.deleted_at IS NULL AND c.deleted_at IS NULL",
-        email);
+  // Email và account_id là UNIQUE: truy vấn trả tối đa một ID, không cần Map.
+  // Không có hồ sơ hợp lệ trả Optional.empty(); lỗi DB vẫn được truyền lên.
+  public Optional<Long> findActiveIdByEmail(String email) {
+    return DataAccessUtils.optionalResult(
+        jdbc.queryForList(
+            "SELECT c.id FROM customers c JOIN accounts a ON a.id=c.account_id WHERE a.email=? AND"
+                + " a.status='ACTIVE' AND a.deleted_at IS NULL AND c.deleted_at IS NULL",
+            Long.class,
+            email));
   }
 
   public List<Map<String, Object>> findActiveNameByAccount(long accountId) {

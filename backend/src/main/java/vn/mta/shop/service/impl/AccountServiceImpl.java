@@ -47,9 +47,9 @@ public class AccountServiceImpl implements AccountService {
 
   @Override
   public long customerId(String email) {
-    var rows = customerRepository.findActiveIdByEmail(EmailNormalizer.normalize(email));
-    if (rows.isEmpty()) throw BusinessException.error(403, "Hồ sơ khách hàng không khả dụng");
-    return ((Number) rows.get(0).get("id")).longValue();
+    return customerRepository
+        .findActiveIdByEmail(EmailNormalizer.normalize(email))
+        .orElseThrow(() -> BusinessException.error(403, "Hồ sơ khách hàng không khả dụng"));
   }
 
   @Override
